@@ -202,5 +202,26 @@ alt="5G Technology Overview" class="intro-img">
     <p>&copy; 2026 Zeinab Amoud | ICD2O Class Project</p>
 </footer>
 
+<button id="backToTop" title="Go to top">&#8593;</button>
+
+<script>
+  const BackBtn = document.getElementById("backToTop");
+
+  window.onscroll = function() {
+    if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
+      backBtn.style.display = "block";
+    } else {
+      backBtn.style.display = "none";
+    }
+  };
+
+  backBtn.onclick = function() {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth
+    });
+  };
+</script>
+
 </body>
 </html>
