@@ -127,7 +127,7 @@
       box-shadow: 0 4px 10px, rgba(0,0,0,0.3);
       transition: background-color 0.3s, transform 0.3s;
     }
-    #backToTop: hover {
+    #backToTop:hover {
       background-color: var(--accent-cyan);
       transform: scale(1.1);
     }
@@ -164,7 +164,7 @@ alt="5G Technology Overview" class="intro-img">
   <p>The average consumer is expected to use close to 11 GB of data per month on their smartphone in 2022. This is driven by explosive growth in video traffic as mobile is increasingly becoming the source of media and entertainment, as well as the massive growth in always-connected cloud computing and experiences.</p>
   <p>4G completely changed how we consume information. In the past decade we have witnessed leaps and bounds in the mobile app industry around services such as video streaming, ride sharing, food delivery and more.</p>
   <p>5G will expand the mobile ecosystem to new industries. This will contribute to cutting-edge user experiences such as boundless extreme reality (XR), seamless IoT capabilities, new enterprise applications, local interactive content and instant cloud access, to name a few.</p>
-  <p>5G's successsor, <a href="6g-future" class ='internal-link'>6G</a>, is expected to roll out around 2030. </p>
+  <p>5G's successsor, <a href="#6g-future" class ='internal-link'>6G</a>, is expected to roll out around 2030. </p>
 </section>
 
 <section id="top-leaders">
@@ -205,7 +205,7 @@ alt="5G Technology Overview" class="intro-img">
 <button id="backToTop" title="Go to top">&#8593;</button>
 
 <script>
-  const BackBtn = document.getElementById("backToTop");
+  const backBtn = document.getElementById("backToTop");
 
   window.onscroll = function() {
     if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
@@ -218,7 +218,7 @@ alt="5G Technology Overview" class="intro-img">
   backBtn.onclick = function() {
     window.scrollTo({
       top: 0,
-      behavior: 'smooth
+      behavior: 'smooth'
     });
   };
 </script>
