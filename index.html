@@ -1,330 +1,514 @@
 <!DOCTYPE html>
-<html lang='en'>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title> Deep dive into 5G (Peak into 6G) </title>
-  <style>
-    :root{
-      --primary-bg:#ffe0b2;
-      --secondary-bg: #ffcc80;
-      --accent-cyan: #5d4037;
-      --text-main: #3e2723;
-      --text-dim: #6d4c41;
-      --accent-blue: #db2777;
-    }
-    body{
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      line-height: 1.6;
-      color: var(--text-main);
-      background-color: var(--primary-bg);
-      margin: 0;
-      padding: 0;
-      scroll-behavior: smooth;
-    }
-    nav{
-      background-color: var(--secondary-bg);
-      padding: 1rem;
-      position: fixed;
-      width: 100%;
-      top: 0;
-      z-index: 1000;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-      display: flex;
-      justify-content: center;
-    }
-    nav a{
-      color: var(--text-main);
-      text-decoration: none;
-      margin: 0 15px;
-      font-weight: bold;
-      transition: color 0.3s;
-    }
-    nav a:hover{
-      color: var(--accent-cyan);
-    }
-    header{
-      padding: 100px 20px 50px;
-      text-align: center;
-      background: linear-gradient(180deg, #fde3c6 0%, #fde3c6 100%)
-    }
-    h1{
-      font-size: 2.5rem;
-      color: var(--accent-cyan);
-      margin-bottom: 10px;
-    }
-    .student-info{
-      font-size: 1.1rem;
-      color: var(--text-dim);
-    }
-    section{
-      max-width: 900px;
-      margin: 40px auto;
-      padding: 40px 20px;
-      border-bottom: 1px solid var(--secondary-bg);
-    }
-    h2{
-      color: var(--accent-cyan);
-      border-left: 5px solid var(--accent-blue);
-      padding-left: 15px;
-      margin-bottom: 20px;
-    }
-    p{
-      margin-bottom: 20px;
-      text-align: justify;
-    }
-    .intro-img{
-      max-width: 100%;
-      height: auto;
-      border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-      margin: 20px 0;
-    }
-    .internal-link{
-      color: var(--accent-cyan);
-      text-decoration: underline;
-      font-weight: bold;
-    }
-    .impact-grid{
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-      margin-top: 20px;
-    }
-    .card{
-      background-color: var(--secondary-bg);
-      padding: 20px;
-      border-radius: 10px;
-      text-align: center;
-      border: 1px solid #c7a07a;
-    }
-    .card strong{
-      display: block;
-      font-size: 1.5rem;
-      color: var(--accent-cyan);
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grade & Syllabus Tracker</title>
+    <style>
+        /* --- Clean, Modern Aesthetic Styles --- */
+        :root {
+            --bg-color: #121214;
+            --card-bg: #1e1e24;
+            --accent-color: #6366f1;
+            --danger-color: #ef4444;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --success-color: #10b981;
+        }
 
-    .source-list {
-      list-style-type: none;
-      padding: 0;
-    }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            padding-bottom: 100px; /* Space for the bottom navigation bar */
+        }
 
-    .source-list li {
-      margin-bottom: 10px;
-      work-break: break-all;
-    }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1000px;
+            margin: 0 auto 30px auto;
+        }
 
-    .source-list a {
-      color: var(--accent-cyan);
-      text-decoration: none;
-    }
+        h1 { margin: 0; font-size: 24px; }
 
-    .source-list a:hover {
-      text-decoration: underline;
-    }
-    footer{
-      text-align: center;
-      padding: 40px;
-      color: var(--text-dim);
-      font-size: 0.9 rem;
-    }
+        .btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
 
-    #backToTop {
-      display: none;
-      position: fixed;
-      bottom: 20px;
-      right: 30px;
-      z-index: 1000;
-      border: none;
-      outline: none;
-      background-color: var(--accent-blue);
-      color: white;
-      cursor: pointer;
-      padding: 15px;
-      border-radius: 50%;
-      font-size: 20px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-      transition: background-color 0.3s, transform 0.3s;
-    }
-    #backToTop:hover {
-      background-color: var(--accent-cyan);
-      transform: scale(1.1);
-    }
+        .btn-danger { background-color: var(--danger-color); }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 20px 0;
-      background-color: var(--secondary-bg);
-      border-radius: 8px;
-      overflow: hidden;
-    }
+        /* --- Dashboard Grid --- */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
 
-    th, td {
-      padding: 15px;
-      text-align: left;
-      border-bottom: 1px solid #c7a07a;
-    }
+        .course-card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: transform 0.2s, border-color 0.2s;
+        }
 
-    th {
-      background-color: var(--accent-cyan);
-      color: white;
-      text-transform: uppercase;
-      font-size: 0.9rem;
-    }
+        .course-card:hover {
+            transform: translateY(-4px);
+        }
 
-    tr:hover {
-      background-color: #fde3c6;
-    }
-  </style>
+        /* Target grade warning outline */
+        .course-card.warning {
+            border-color: var(--danger-color);
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .delete-btn:hover { color: var(--danger-color); }
+
+        .grade-display {
+            font-size: 36px;
+            font-weight: bold;
+            margin: 15px 0 5px 0;
+            color: var(--accent-color);
+        }
+
+        .course-card.warning .grade-display {
+            color: var(--danger-color);
+        }
+
+        /* --- Views Management --- */
+        .view { display: none; }
+        .view.active { display: block; }
+
+        .detail-container {
+            max-width: 700px;
+            margin: 0 auto;
+            background-color: var(--card-bg);
+            padding: 30px;
+            border-radius: 16px;
+        }
+
+        /* --- Forms & Modals --- */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--text-muted);
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            background-color: #2a2a35;
+            border: 1px solid #3f3f46;
+            border-radius: 6px;
+            color: white;
+            box-sizing: border-box;
+        }
+
+        /* Inline formatting for the completion checkbox */
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            background-color: #2a2a35;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #3f3f46;
+        }
+
+        .checkbox-group input {
+            width: auto;
+            cursor: pointer;
+        }
+
+        /* --- Bottom Navigation Bar --- */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: var(--card-bg);
+            padding: 15px 0;
+            display: flex;
+            justify-content: center;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
+        }
+
+        .add-class-trigger {
+            font-size: 24px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background-color: var(--accent-color);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(99, 102, 241, 0.4);
+        }
+
+        /* --- Grade List Styling --- */
+        .grade-item {
+            background: #2a2a35;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .grade-target-text {
+            color: var(--success-color);
+            font-size: 13px;
+            margin-top: 4px;
+            font-weight: 500;
+        }
+    </style>
 </head>
 <body>
 
-<nav>
-  <a href="#intro">Introduction</a>
-  <a href="#what-is-5g">What is 5G</a>
-  <a href="#comparison">4G/5G</a>
-  <a href="#top-leaders">Top Leaders</a>
-  <a href="#how-does-5g-work?">How does 5G work?</a>
-  <a href="#6g-future">6G?</a>
-  <a href="#impacts">Impacts</a>
-  <a href="#sources">Sources</a>
-</nav>
+    <div id="dashboard-view" class="view active">
+        <header>
+            <div>
+                <h1 id="welcome-text">My Dashboard</h1>
+                <p style="color: var(--text-muted); margin: 5px 0 0 0;">Track your semester progress</p>
+            </div>
+            <button class="btn btn-danger" onclick="resetApp()">Reset App</button>
+        </header>
 
-<header>
-  <h1>Deep dive into 5G (Peak into 6G)</h1>
-  <p class="student-info">Prepared by: <strong>Zeinab Amoud</strong> | Class Code: <strong>ICD2O</strong></p>
-</header>
+        <div class="dashboard" id="courses-grid">
+            </div>
 
-<section id="intro">
-  <h2>Introduction</h2>
-  <p>Welcome to a comprehensive overview of the current wireless network. As we start establishing into the 5G infrastructure and will be transitioning into 6G in the following years, it is important to understand it as much as we can. The world of connectivity is changing faster than ever before. </p>
-  <img src="https://cdn.everythingrf.com/live/1615989670156_637515864708528639.png"
-alt="5G Technology Overview" class="intro-img">
-</section>
+        <div class="bottom-nav">
+            <button class="add-class-trigger" onclick="switchView('add-course-view')">+</button>
+        </div>
+    </div>
 
-<section id="what-is-5g">
-  <h2>What is 5G?</h2>
-  <p>5G is the fifth generation mobile network. It is a global wireess standard designed to deliver higher multi-Gbps peak data speeds, ultra-low latency, increased reliability and massive network capacity. It supports AI and autonomous vehicles, with speeds potentially reaching 20 Gbps to transform industries, entertainement, and everyday connectivity.</p>
-  <p>5G technology was introduced to the world in April 2019. As of 2026, 70+ countries out of 195 have 5G technology a in wireless network. The <a href="#top-leaders" class="internal-link">three top competitors</a> that work to improve 5G technology are Ericsson, Huawei and Nokia.</p>
-  <p>5G is used across three main types of connected services, including enhanced mobile broadband, mission-critical communications and more. A definition capability of 5G is that it is designed for forward compatibility, the ability to flexibly support future services that are unknown today.</p>
-  <p>In addition to making smartphones better, 5G mobile technology can usher in new immersive experiences such as VR and AR with faster, more uniform data rates, lower latency, and lower cost-per-bit.</p>
-  <p>The average consumer is expected to use close to 11 GB of data per month on their smartphone in 2022. This is driven by explosive growth in video traffic as mobile is increasingly becoming the source of media and entertainment, as well as the massive growth in always-connected cloud computing and experiences.</p>
-  <p>4G completely changed how we consume information. In the past decade we have witnessed leaps and bounds in the mobile app industry around services such as video streaming, ride sharing, food delivery and more.</p>
-  <p>5G will expand the mobile ecosystem to new industries. This will contribute to cutting-edge user experiences such as boundless extreme reality (XR), seamless IoT capabilities, new enterprise applications, local interactive content and instant cloud access, to name a few.</p>
-  <p>5G's successsor, <a href="#6g-future" class ='internal-link'>6G</a>, is expected to roll out around 2030. </p>
-</section>
+    <div id="add-course-view" class="view">
+        <div class="detail-container">
+            <h2>Add New Course</h2>
+            <div class="form-group">
+                <label>Course Name</label>
+                <input type="text" id="new-course-name" placeholder="e.g., Grade 10 Math">
+            </div>
+            <div class="form-group">
+                <label>Grade Goal (%)</label>
+                <input type="number" id="new-course-goal" placeholder="e.g., 85">
+            </div>
+            <button class="btn" onclick="addNewCourse()">Save Course</button>
+            <button class="btn btn-danger" onclick="switchView('dashboard-view')">Cancel</button>
+        </div>
+    </div>
 
-<section id="comparison">
-  <h2>4G vs. 5G: Technical Comparison</h2>
-  <p>While 4G changed how we browse, 5G is designed to transform entire industries by offering massive improvements in speed, capacity, and responsiveness.</p>
+    <div id="detail-view" class="view">
+        <div class="detail-container">
+            <button class="btn" onclick="switchView('dashboard-view')" style="margin-bottom: 20px;">← Back to Dashboard</button>
+            <h2 id="detail-course-title">Course Title</h2>
+            <p id="detail-course-goal">Goal: --%</p>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Feature</th>
-        <th>4G LTE</th>
-        <th>5G</th>
-        <th>Impacts</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>Peak Speed</strong></td>
-        <td>1 Gbps</td>
-        <td>20 Gbps</td>
-        <td>20x Faster</td>
-      </tr>
-      <tr>
-        <td><strong>Latency</strong></td>
-        <td>20-50 ms</td>
-        <td>&lt; 10 ms</td>
-        <td>Near-Instant</td>
-      </tr>
-      <tr>
-        <td><strong>Capacity</strong></td>
-        <td>10k devices/km²</td>
-        <td>1M devices/km²</td>
-        <td>Massive IoT Support</td>
-      </tr>
-    </tbody>
-  </table>
-</section>
-<section id="top-leaders">
-  <h2>Top Leaders</h2>
-  <p>With 5G growing stronger and stronger and 6G technology coming soon, a lot of companies are working on these projects to make them more popular, reliable and strong. As of April 2026, the top competitors are Ericsson, Nokia and Huawei. </p>
-  <h3>Ericsson</h3>
-  <p>Ericsson is a global leader in 5G technology, currently managing approximately 50% of the world's mobile traffic. As of now, the company is focused on the transition to 5G-Advanced, which introduces high-position positioning and AI-driven automation into mobile networks.</p>
-  <h3>Nokia</h3>
-  <p>Nokia is a company that is actively leading 5G advancements through projects focused on 5G-Advanced, AI-driven network automation, and industrial private networks. Key initiatives include developing distributed massive MIMO, deploying cloud native 5G Core networks, and R&D for 5G/6G in cities such as Ottawa. The key projects focus on industrial IoT, smart cities and railway modernization.</p>
-  <h3>Huawei</h3>
-  <p>Huawei is leading the development and commercial deployment of 5G-Advanced (5G-A or 5.5G), aiming for widespread adoption by 2025-2026. Their current projects focus on integrating AI with 5G infrastructure, upgrading smart manufacturing, and enabling new 'low altitude economy' services.</p>
-</section>
+            <hr style="border-color: #3f3f46; margin: 20px 0;">
 
-<section id="how-does-5g-work?">
-  <h2>How does 5G work?</h2>
-  <p>As with previous cellular networks, 5G technology uses cell sites that transmit data through radio waves. Cell sites connect to networks with wireless technology or wired connection. 5G technology works by modifying how data is encoded, significantly increasing the number of usable airwaves for carriers.</p>
-  <p>5G technology also uses smaller transmitters placed on buildings and other infrastructure. 4G and previous cellular technology relied on standalone mobile towers. The ability to run the network from small cell sites will support many devices at superior speeds. </p>
-  <p>Mobile network operators use 5G technology to deploy multiple independent virtual networks over the same infrastructure. You can customize each network slice for different services and business cases, such as streaming services or enterprise tasks. By forming a collection of 5G network functions for each specific use case or business model, you can support different requirements from all vertical industries. The service separation means users benefit from a more reliable experience and improved efficiency on their devices. </p>
-</section>
-  
-  <section id="6g-future">
-  <h2>6G: The Future</h2>
-  <p>6G (sixth-generation wireless) is the successor to 5G cellular technology and is expected to be globally available by around 2030. 6G networks will be able to use higher frequencies than 5G networks and provide substantially higher capacity and much lower latency. One of the goals of the 6G internet is to support communications with one-microsecond latency. This is 1,000 times faster, or 1/1000th the latency, than one millisecond throughput.</p>
-  <p>The 6G technology market is expected to facilitate significant improvements in areas such as imaging, presence technology and location awareness. Working in conjunction with technologies like AI, the 6G computational infrastructure will be able to automatically identify the optimal location for computing to occur, including decisions about data storage, processing and sharing. In this way, it has the potential to deliver extraordinary performance and create new possibilities across a wide range of applications and industries.</p>
-  <p>6G will be based on 3rd Generation Partnership Project (3GPP) standards. 3GPP is the same organization that creates and maintains the 5G and 5G New Radio (NR) standards for wireless communications. It is important to note that 6G is not yet a fully functioning technology. Although governments and the private sector are investing substantial effort and financial resources in researching and developing this next-generation wireless standard, industry specifications for 6G-enabled network products remain years away. Some telecommunications companies, such as Ericsson, expect that the earliest 6G will be available for commercial markets is in the early 2030s.</p>
-</section>
+            <h3>Add an Assignment / Task</h3>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" id="grade-completed" checked onchange="toggleScoreInput(this)">
+                <label for="grade-completed" style="margin: 0; cursor: pointer; color: white;">I have completed this assignment</label>
+            </div>
 
-<section id="impacts">
-  <h2>Impacts & Safety</h2>
-  <div class ='impact-grid'>
-    <div class="card"><strong>$13.1 Trillion</strong>Global Economic output</div>
-    <div class="card"><strong>22.8 Million</strong>New jobs created</div>
-    <div class="card"><strong>$256 Billion</strong>Annual R&D investment</div>
-  </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                <input type="text" id="grade-name" placeholder="Assignment Name">
+                <select id="grade-type">
+                    <option value="Test">Test</option>
+                    <option value="Quiz">Quiz</option>
+                    <option value="Project">Project</option>
+                    <option value="Exam">Exam</option>
+                </select>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                <input type="number" id="grade-weight" placeholder="Weight/Worth (%)">
+                <input type="number" id="grade-score" placeholder="Grade Achieved (%)">
+            </div>
+            <button class="btn" onclick="addGradeToCourse()">Add Assignment Entry</button>
 
-  <p>The study also revealed that the 5G value chain (including OEMs, operators, content creators, app developers, and consumers> alone could support up to 22.8 million jobs. Only time will tell what the full 5G effect on the economy is going to be.</p>
+            <hr style="border-color: #3f3f46; margin: 20px 0;">
 
-  <h3>Radiofrequency (RF) Radiation</h3>
-  <p>One of the most common questions that come up with 5G is: "Can such high frequencies affect human health?" The answer is complicated. Radiofrequency (RF) radiation is a form of non-ionizing electromagnetic energy that moves in waves through space at frequencies ranging from 3kHz to 300 GHz. Because it is non-ionizing, it lacks the energy to remove electrons from atoms or directly damage DNA.</p>
-  <p>The amount of radiation that was used to test this was much higher than the radiation that is actually emitted by our phones. To take precautions, it is recommended by experts to turn off our phones when not needed and leaving them in another room when sleeping.</p>
-</section>
+            <h3>Graded & Planned Items</h3>
+            <div id="grades-list-container">
+                </div>
+        </div>
+    </div>
 
-<section id="sources">
-  <h2>Sources</h2>
-  <ul class="source-list">
-    <li><a href="https://www.ericsson.com/en" target="_blank">Ericsson Global - Official Website</a></li>
-    <li><a href="https://www.nokia.com/" target="_blank">Nokia - Official Website</a></li>
-    <li><a href="https://www.huawei.com/en/" target="_blank">Huawei Global - Official Website</a></li>
-    <li><a href="https://www.canada.ca/en/health-canada/services/health-risks-safety/radiation/everyday-things-emit-radiation/cell-phones-towers.html" target="_blank">Health Canada - Cell Phones and Towers Safety</a></li>
-    <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10041185/" target="_blank">PMC - Research on 5G and Health</a></li>
-    <li><a href="https://www.ericsson.com/en/6g" target="_blank">Ericsson - The Future of 6G</a></li>
-    <li><a href="https://www.ericsson.com/en/5g/5g-vs-4g" target="_blank"> Ericsson - 5G vs 4G comparison</a></li>
-    <li><a href="https://www.qualcomm.com/5g/what-is-5g" target="_blank"> Qualcomm - What is 5G?</a></li>
-<footer>
-    <p>&copy; 2026 Zeinab Amoud | ICD2O Class Project</p>
-</footer>
+    <script>
+        let appData = {
+            userName: "",
+            courses: []
+        };
 
-<button id="backToTop" title="Go to top">&#8593;</button>
+        window.onload = function() {
+            const savedData = localStorage.getItem('gradeTrackerData');
+            if (savedData) {
+                appData = JSON.parse(savedData);
+            } else {
+                let name = prompt("Welcome! What is your name?");
+                appData.userName = name ? name : "Student";
+                saveToLocalStorage();
+            }
+            document.getElementById('welcome-text').innerText = `Hello, ${appData.userName}`;
+            renderDashboard();
+        };
 
-<script>
-  const backBtn = document.getElementById("backToTop");
+        function saveToLocalStorage() {
+            localStorage.setItem('gradeTrackerData', JSON.stringify(appData));
+        }
 
-  window.onscroll = function() {
-    if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
-      backBtn.style.display = "block";
-    } else {
-      backBtn.style.display = "none";
-    }
-  };
+        function switchView(viewId) {
+            document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+        }
 
-  backBtn.onclick = function() {
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    });
-  };
-</script>
+        // Toggles the grade entry visibility depending on completion status
+        function toggleScoreInput(checkbox) {
+            const scoreInput = document.getElementById('grade-score');
+            if (!checkbox.checked) {
+                scoreInput.value = '';
+                scoreInput.disabled = true;
+                scoreInput.style.opacity = '0.4';
+                scoreInput.placeholder = "Calculated automatically";
+            } else {
+                scoreInput.disabled = false;
+                scoreInput.style.opacity = '1';
+                scoreInput.placeholder = "Grade Achieved (%)";
+            }
+        }
 
+        function renderDashboard() {
+            const grid = document.getElementById('courses-grid');
+            grid.innerHTML = ''; 
+
+            appData.courses.forEach((course, index) => {
+                const currentGrade = calculateCourseGrade(course);
+                const isBelowGoal = currentGrade !== '--' && currentGrade < course.goal;
+
+                const card = document.createElement('div');
+                card.className = `course-card ${isBelowGoal ? 'warning' : ''}`;
+                card.setAttribute('onclick', `openCourseDetail(${index})`);
+
+                card.innerHTML = `
+                    <button class="delete-btn" onclick="deleteCourse(event, ${index})">×</button>
+                    <h3 style="margin: 0;">${course.name}</h3>
+                    <div class="grade-display">${currentGrade}${currentGrade === '--' ? '%' : '%'}</div>
+                    <p style="margin: 0; font-size: 12px; color: var(--text-muted)">
+                        Goal: ${course.goal}% ${currentGrade === '--' ? '' : (isBelowGoal ? '⚠️ Below Goal' : '✨ Tracking Well')}
+                    </p>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function addNewCourse() {
+            const nameInput = document.getElementById('new-course-name');
+            const goalInput = document.getElementById('new-course-goal');
+
+            if (!nameInput.value || !goalInput.value) {
+                alert("Please fill in all fields.");
+                return;
+            }
+
+            const newCourse = {
+                name: nameInput.value,
+                goal: parseFloat(goalInput.value),
+                grades: []
+            };
+
+            appData.courses.push(newCourse);
+            saveToLocalStorage();
+            renderDashboard();
+
+            nameInput.value = '';
+            goalInput.value = '';
+            switchView('dashboard-view');
+        }
+
+        function deleteCourse(event, index) {
+            event.stopPropagation(); 
+            if(confirm("Are you sure you want to delete this course? All data inside will be wiped out.")) {
+                appData.courses.splice(index, 1);
+                saveToLocalStorage();
+                renderDashboard();
+            }
+        }
+
+        // Calculates the current grade using only completed tasks
+        function calculateCourseGrade(course) {
+            const completedGrades = course.grades.filter(g => g.completed);
+            if (completedGrades.length === 0) return '--';
+
+            let totalWeightedScores = 0;
+            let totalWeightEncountered = 0;
+
+            completedGrades.forEach(g => {
+                totalWeightedScores += (g.score * (g.weight / 100));
+                totalWeightEncountered += g.weight;
+            });
+
+            if (totalWeightEncountered === 0) return '--';
+            return Math.round((totalWeightedScores / (totalWeightEncountered / 100)));
+        }
+
+        // Target Grade Finder Logic
+        function calculateTargetNeeded(course, targetWeight) {
+            let pointsEarnedSoFar = 0;
+            let totalWeightUsed = 0;
+
+            course.grades.forEach(g => {
+                if (g.completed) {
+                    pointsEarnedSoFar += (g.score * (g.weight / 100));
+                    totalWeightUsed += g.weight;
+                }
+            });
+
+            // If no completed marks exist yet, target score is simply the goal score capped safely at 100
+            if (totalWeightUsed === 0) {
+                return Math.min(100, Math.ceil(course.goal));
+            }
+
+            // Math execution formula: Target score required = (Goal points - Points already earned) / Weight of assignment
+            let calculatedMinimumValue = Math.ceil((course.goal - pointsEarnedSoFar) / (targetWeight / 100));
+            
+            if(calculatedMinimumValue <= 0) return 0;
+            if(calculatedMinimumValue > 100) return 100; // Cap at 100 max as requested
+            return calculatedMinimumValue;
+        }
+
+        let activeCourseIndex = null;
+
+        function openCourseDetail(index) {
+            activeCourseIndex = index;
+            const course = appData.courses[index];
+
+            document.getElementById('detail-course-title').innerText = course.name;
+            document.getElementById('detail-course-goal').innerText = `Goal Target: ${course.goal}%`;
+            
+            renderGradesList();
+            switchView('detail-view');
+        }
+
+        function renderGradesList() {
+            const container = document.getElementById('grades-list-container');
+            container.innerHTML = '';
+            const course = appData.courses[activeCourseIndex];
+
+            if(course.grades.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-muted)">No assignments added yet.</p>';
+                return;
+            }
+
+            course.grades.forEach((g) => {
+                const item = document.createElement('div');
+                item.className = "grade-item";
+                
+                if (g.completed) {
+                    item.innerHTML = `
+                        <div>
+                            <strong>${g.name}</strong> <span style="color:var(--text-muted); font-size:12px;">(${g.type})</span>
+                            <br><small style="color:var(--text-muted)">Weight: ${g.weight}%</small>
+                        </div>
+                        <div style="font-weight:bold; color:var(--accent-color)">${g.score}%</div>
+                    `;
+                } else {
+                    const requiredTarget = calculateTargetNeeded(course, g.weight);
+                    item.innerHTML = `
+                        <div>
+                            <strong style="color: var(--text-muted);">${g.name} (Upcoming)</strong> 
+                            <span style="color:var(--text-muted); font-size:12px;">(${g.type})</span>
+                            <br><small style="color:var(--text-muted)">Weight: ${g.weight}%</small>
+                            <div class="grade-target-text">🎯 Aim for: ${requiredTarget}% to stay on track</div>
+                        </div>
+                        <div style="font-weight:bold; color:var(--text-muted)">Pending</div>
+                    `;
+                }
+                container.appendChild(item);
+            });
+        }
+
+        function addGradeToCourse() {
+            const isCompleted = document.getElementById('grade-completed').checked;
+            const name = document.getElementById('grade-name').value;
+            const type = document.getElementById('grade-type').value;
+            const weight = parseFloat(document.getElementById('grade-weight').value);
+            let score = parseFloat(document.getElementById('grade-score').value);
+
+            if (!name || isNaN(weight)) {
+                alert("Please give your assignment a name and weight value.");
+                return;
+            }
+
+            if (isCompleted && isNaN(score)) {
+                alert("Please enter the grade score you achieved.");
+                return;
+            }
+
+            if (!isCompleted) {
+                score = 0; // Baseline structural fallback placeholder
+            }
+
+            appData.courses[activeCourseIndex].grades.push({ 
+                name: name, 
+                type: type, 
+                weight: weight, 
+                score: score, 
+                completed: isCompleted 
+            });
+
+            saveToLocalStorage();
+            renderGradesList();
+            renderDashboard(); 
+
+            // Clear configuration inputs and restore system state defaults
+            document.getElementById('grade-name').value = '';
+            document.getElementById('grade-weight').value = '';
+            document.getElementById('grade-score').value = '';
+            document.getElementById('grade-completed').checked = true;
+            toggleScoreInput(document.getElementById('grade-completed'));
+        }
+
+        function resetApp() {
+            if(confirm("Reset everything? All your classes and recorded grades will be permanently deleted.")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+    </script>
 </body>
 </html>
