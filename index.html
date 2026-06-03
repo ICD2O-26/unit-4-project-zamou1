@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grade & Syllabus Tracker</title>
+    <title>Multi-Grade Academic Dashboard</title>
     <style>
         /* --- Clean, Modern Aesthetic Styles --- */
         :root {
@@ -15,6 +15,7 @@
             --text-muted: #9ca3af;
             --success-color: #10b981;
             --warning-bg: rgba(239, 68, 68, 0.1);
+            --completed-success-bg: rgba(99, 102, 241, 0.1);
         }
 
         body {
@@ -23,7 +24,7 @@
             color: var(--text-main);
             margin: 0;
             padding: 20px;
-            padding-bottom: 100px; /* Space for the bottom navigation bar */
+            padding-bottom: 120px; /* Extra spacing for bottom navigational components */
         }
 
         header {
@@ -31,7 +32,7 @@
             justify-content: space-between;
             align-items: flex-start;
             max-width: 1000px;
-            margin: 0 auto 30px auto;
+            margin: 0 auto 10px auto;
             gap: 20px;
         }
 
@@ -75,11 +76,26 @@
         }
 
         .global-average-title {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 5px;
+        }
+
+        .avg-filter-select {
+            background: #2a2a35;
+            color: white;
+            border: 1px solid #3f3f46;
+            font-size: 11px;
+            padding: 2px 4px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: auto;
         }
 
         .global-average-num {
@@ -99,6 +115,7 @@
             gap: 6px;
             font-size: 11px;
             color: var(--text-muted);
+            justify-content: flex-end;
         }
 
         .global-goal-row input {
@@ -126,9 +143,7 @@
             z-index: 100;
         }
 
-        .improvement-dropdown.active {
-            display: block;
-        }
+        .improvement-dropdown.active { display: block; }
 
         .improvement-dropdown h4 {
             margin: 0 0 10px 0;
@@ -159,20 +174,55 @@
             font-weight: bold;
         }
 
+        /* --- Grade Track Layout Sections --- */
+        .timeline-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .grade-section {
+            margin-top: 40px;
+            border-top: 1px dashed #2d2d39;
+            padding-top: 20px;
+        }
+
+        .grade-header-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: #f3f4f6;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .grade-header-title span.badge-count {
+            font-size: 12px;
+            background-color: #2a2a35;
+            color: var(--text-muted);
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+
+        .no-courses-placeholder {
+            color: var(--text-muted);
+            font-size: 13px;
+            font-style: italic;
+            padding: 10px 5px;
+        }
+
         /* --- Dashboard Grid --- */
         .dashboard {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 20px;
-            max-width: 1000px;
-            margin: 0 auto;
         }
 
         .course-card {
             background-color: var(--card-bg);
             border-radius: 12px;
             padding: 20px;
-            padding-bottom: 70px; /* Leave clean structural space for the bottom class layout buttons */
+            padding-bottom: 70px;
             position: relative;
             cursor: pointer;
             border: 2px solid transparent;
@@ -183,172 +233,117 @@
             transform: translateY(-4px);
         }
 
-        .course-card.warning {
-            border-color: var(--danger-color);
-        }
+        .course-card.warning { border-color: rgba(239, 68, 68, 0.4); }
+        .course-card.completed-passed { border: 2px solid var(--accent-color); background-color: var(--completed-success-bg); }
+        .course-card.completed-failed { border: 2px dashed var(--danger-color); background-color: var(--warning-bg); }
 
         .delete-btn {
             position: absolute;
-            top: 15px;
-            right: 15px;
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            font-size: 18px;
-            cursor: pointer;
+            top: 15px; right: 15px;
+            background: none; border: none;
+            color: var(--text-muted); font-size: 18px;
+            cursor: pointer; z-index: 5;
         }
-
         .delete-btn:hover { color: var(--danger-color); }
 
         .done-class-btn {
             position: absolute;
-            bottom: 15px;
-            left: 20px;
-            right: 20px;
+            bottom: 15px; left: 20px; right: 20px;
             background-color: var(--success-color);
-            color: white;
-            border: none;
-            padding: 8px 0;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            text-align: center;
-            font-size: 13px;
-            transition: opacity 0.2s;
+            color: white; border: none;
+            padding: 8px 0; border-radius: 6px;
+            font-weight: bold; cursor: pointer;
+            text-align: center; font-size: 13px;
         }
 
-        .done-class-btn:hover {
-            opacity: 0.9;
+        .status-badge {
+            display: inline-block;
+            padding: 2px 6px; border-radius: 4px;
+            font-size: 11px; font-weight: bold; margin-top: 5px;
         }
+        .status-badge.passed { background-color: var(--accent-color); color: white; }
+        .status-badge.failed { background-color: var(--danger-color); color: white; }
 
         .grade-display {
-            font-size: 36px;
-            font-weight: bold;
-            margin: 15px 0 5px 0;
-            color: var(--accent-color);
+            font-size: 36px; font-weight: bold; margin: 15px 0 5px 0; color: var(--accent-color);
         }
+        .course-card.warning .grade-display { color: var(--danger-color); }
+        .course-card.completed-failed .grade-display { color: var(--danger-color); }
 
-        .course-card.warning .grade-display {
-            color: var(--danger-color);
+        /* --- Custom Dialog Pop-up Modal --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.7); z-index: 200;
+            align-items: center; justify-content: center;
         }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background-color: #1e1e24; border: 1px solid #3f3f46;
+            padding: 25px; border-radius: 12px;
+            width: 90%; max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center;
+        }
+        .modal-box h3 { margin-top: 0; }
+        .modal-btn-row { display: flex; justify-content: center; gap: 15px; margin-top: 20px; }
+        .custom-entry-zone { display: none; margin-top: 20px; border-top: 1px solid #3f3f46; padding-top: 15px; }
 
         /* --- Views Management --- */
         .view { display: none; }
         .view.active { display: block; }
 
         .detail-container {
-            max-width: 700px;
-            margin: 0 auto;
-            background-color: var(--card-bg);
-            padding: 30px;
-            border-radius: 16px;
+            max-width: 700px; margin: 0 auto;
+            background-color: var(--card-bg); padding: 30px; border-radius: 16px;
         }
 
         /* --- Forms & Modals --- */
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 5px;
-            color: var(--text-muted);
-        }
-
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: var(--text-muted); }
         input, select {
-            width: 100%;
-            padding: 10px;
-            background-color: #2a2a35;
-            border: 1px solid #3f3f46;
-            border-radius: 6px;
-            color: white;
-            box-sizing: border-box;
+            width: 100%; padding: 10px; background-color: #2a2a35;
+            border: 1px solid #3f3f46; border-radius: 6px;
+            color: white; box-sizing: border-box;
         }
 
         .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 15px;
-            background-color: #2a2a35;
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid #3f3f46;
+            display: flex; align-items: center; gap: 10px; margin-bottom: 15px;
+            background-color: #2a2a35; padding: 10px; border-radius: 6px; border: 1px solid #3f3f46;
         }
-
-        .checkbox-group input {
-            width: auto;
-            cursor: pointer;
-        }
+        .checkbox-group input { width: auto; cursor: pointer; }
 
         /* --- Bottom Navigation Bar --- */
         .bottom-nav {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background-color: var(--card-bg);
-            padding: 15px 0;
-            display: flex;
-            justify-content: center;
-            box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
-            z-index: 90;
+            bottom: 0; left: 0; width: 100%;
+            background-color: var(--card-bg); padding: 15px 0;
+            display: flex; justify-content: center;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.3); z-index: 90;
         }
 
         .add-class-trigger {
-            font-size: 24px;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            border: none;
-            background-color: var(--accent-color);
-            color: white;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            font-size: 24px; width: 50px; height: 50px;
+            border-radius: 50%; border: none;
+            background-color: var(--accent-color); color: white;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
             box-shadow: 0 4px 10px rgba(99, 102, 241, 0.4);
         }
 
         /* --- Grade List Styling --- */
         .grade-item {
-            background: #2a2a35;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            background: #2a2a35; padding: 15px; border-radius: 8px;
+            margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
         }
-
-        .grade-target-text {
-            color: var(--success-color);
-            font-size: 13px;
-            margin-top: 4px;
-            font-weight: 500;
-        }
-
+        .grade-target-text { color: var(--success-color); font-size: 13px; margin-top: 4px; font-weight: 500; }
         .action-links button {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 13px;
-            margin-left: 10px;
-            text-decoration: underline;
+            background: none; border: none; color: var(--text-muted); cursor: pointer;
+            font-size: 13px; margin-left: 10px; text-decoration: underline;
         }
-
         .action-links button:hover { color: white; }
         .action-links button.del-item:hover { color: var(--danger-color); }
 
-        .goal-editor-zone {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 5px;
-            max-width: 260px;
-        }
-
+        .goal-editor-zone { display: flex; align-items: center; gap: 10px; margin-top: 5px; max-width: 260px; }
         .goal-editor-zone input { padding: 6px 10px; }
         .goal-editor-zone .btn { padding: 6px 12px; font-size: 13px; }
     </style>
@@ -359,13 +354,22 @@
         <header>
             <div>
                 <h1 id="welcome-text">My Dashboard</h1>
-                <p style="color: var(--text-muted); margin: 5px 0 0 0;">Track your semester progress</p>
+                <p style="color: var(--text-muted); margin: 5px 0 0 0;">Track your high school progress</p>
                 <button class="btn btn-danger" onclick="resetApp()" style="margin-top: 10px; padding: 6px 12px; font-size: 12px;">Reset App</button>
             </div>
 
             <div class="global-stats-container">
                 <div class="global-average-card" id="global-avg-card" onclick="toggleImprovementDropdown(event)">
-                    <div class="global-average-title">Total Average</div>
+                    <div class="global-average-title">
+                        <span id="avg-title-text">Average</span>
+                        <select id="average-grade-filter" class="avg-filter-select" onclick="event.stopPropagation()" onchange="handleFilterChange()">
+                            <option value="all">All Grades</option>
+                            <option value="gr9">Gr. 9 Only</option>
+                            <option value="gr10">Gr. 10 Only</option>
+                            <option value="gr11">Gr. 11 Only</option>
+                            <option value="gr12">Gr. 12 Only</option>
+                        </select>
+                    </div>
                     <div class="global-average-num" id="global-avg-display">--%</div>
                     <div class="global-goal-row" onclick="event.stopPropagation()">
                         <span>Goal:</span>
@@ -375,15 +379,36 @@
                 </div>
 
                 <div class="improvement-dropdown" id="improvement-menu">
-                    <h4>⚠️ Needs Improvement</h4>
+                    <h4 id="improvement-header-title">⚠️ Needs Improvement</h4>
                     <ul class="improvement-list" id="improvement-list-items">
                         </ul>
                 </div>
             </div>
         </header>
 
-        <div class="dashboard" id="courses-grid">
+        <div class="timeline-container" id="timeline-wrapper">
+            
+            <div class="grade-section">
+                <div class="grade-header-title">Grade 9 <span class="badge-count" id="count-gr9">0</span></div>
+                <div class="dashboard" id="grid-gr9"></div>
             </div>
+
+            <div class="grade-section">
+                <div class="grade-header-title">Grade 10 <span class="badge-count" id="count-gr10">0</span></div>
+                <div class="dashboard" id="grid-gr10"></div>
+            </div>
+
+            <div class="grade-section">
+                <div class="grade-header-title">Grade 11 <span class="badge-count" id="count-gr11">0</span></div>
+                <div class="dashboard" id="grid-gr11"></div>
+            </div>
+
+            <div class="grade-section">
+                <div class="grade-header-title">Grade 12 <span class="badge-count" id="count-gr12">0</span></div>
+                <div class="dashboard" id="grid-gr12"></div>
+            </div>
+
+        </div>
 
         <div class="bottom-nav">
             <button class="add-class-trigger" onclick="switchView('add-course-view')">+</button>
@@ -397,6 +422,17 @@
                 <label>Course Name</label>
                 <input type="text" id="new-course-name" placeholder="e.g., Grade 10 Math">
             </div>
+            
+            <div class="form-group">
+                <label>Academic Grade Level</label>
+                <select id="new-course-grade-level">
+                    <option value="gr9">Grade 9</option>
+                    <option value="gr10">Grade 10</option>
+                    <option value="gr11">Grade 11</option>
+                    <option value="gr12">Grade 12</option>
+                </select>
+            </div>
+
             <div class="form-group">
                 <label>Grade Goal (%)</label>
                 <input type="number" id="new-course-goal" placeholder="e.g., 85">
@@ -410,6 +446,7 @@
         <div class="detail-container">
             <button class="btn" onclick="switchView('dashboard-view')" style="margin-bottom: 20px;">&lt;- Back to Dashboard</button>
             <h2 id="detail-course-title" style="margin-bottom: 5px;">Course Title</h2>
+            <p id="detail-course-grade-badge" style="color: var(--accent-color); font-size:13px; margin:0 0 15px 0; font-weight:bold;"></p>
             
             <label style="margin-bottom: 2px;">Target Grade Goal (%)</label>
             <div class="goal-editor-zone">
@@ -419,30 +456,32 @@
 
             <hr style="border-color: #3f3f46; margin: 20px 0;">
 
-            <h3 id="form-action-title">Add an Assignment / Task</h3>
-            
-            <div class="checkbox-group">
-                <input type="checkbox" id="grade-completed" checked onchange="toggleScoreInput(this)">
-                <label for="grade-completed" style="margin: 0; cursor: pointer; color: white;">I have completed this assignment</label>
-            </div>
+            <div id="detail-editing-form-wrapper">
+                <h3 id="form-action-title">Add an Assignment / Task</h3>
+                
+                <div class="checkbox-group">
+                    <input type="checkbox" id="grade-completed" checked onchange="toggleScoreInput(this)">
+                    <label for="grade-completed" style="margin: 0; cursor: pointer; color: white;">I have completed this assignment</label>
+                </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                <input type="text" id="grade-name" placeholder="Assignment Name">
-                <select id="grade-type">
-                    <option value="Test">Test</option>
-                    <option value="Quiz">Quiz</option>
-                    <option value="Project">Project</option>
-                    <option value="Exam">Exam</option>
-                </select>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-                <input type="number" id="grade-weight" placeholder="Weight/Worth (%)">
-                <input type="number" id="grade-score" placeholder="Grade Achieved (%)">
-            </div>
-            <button class="btn" id="submit-grade-btn" onclick="addGradeToCourse()">Add Assignment Entry</button>
-            <button class="btn btn-danger" id="cancel-edit-btn" onclick="clearGradeForm()" style="display: none;">Cancel Edit</button>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                    <input type="text" id="grade-name" placeholder="Assignment Name">
+                    <select id="grade-type">
+                        <option value="Test">Test</option>
+                        <option value="Quiz">Quiz</option>
+                        <option value="Project">Project</option>
+                        <option value="Exam">Exam</option>
+                    </select>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                    <input type="number" id="grade-weight" placeholder="Weight/Worth (%)">
+                    <input type="number" id="grade-score" placeholder="Grade Achieved (%)">
+                </div>
+                <button class="btn" id="submit-grade-btn" onclick="addGradeToCourse()">Add Assignment Entry</button>
+                <button class="btn btn-danger" id="cancel-edit-btn" onclick="clearGradeForm()" style="display: none;">Cancel Edit</button>
 
-            <hr style="border-color: #3f3f46; margin: 20px 0;">
+                <hr style="border-color: #3f3f46; margin: 20px 0;">
+            </div>
 
             <h3>Graded & Planned Items</h3>
             <div id="grades-list-container">
@@ -450,29 +489,59 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="custom-done-modal">
+        <div class="modal-box">
+            <h3 id="modal-course-title">Verify Course Grade</h3>
+            <p id="modal-prediction-text" style="color: var(--text-muted); font-size: 14px;"></p>
+            <p style="margin-bottom: 15px;">Was your final grade equal to the predicted tracker average?</p>
+            
+            <div class="modal-btn-row">
+                <button class="btn btn-success" onclick="handleModalResponse(true)">Yes</button>
+                <button class="btn btn-danger" onclick="handleModalResponse(false)">No</button>
+            </div>
+
+            <div class="custom-entry-zone" id="custom-grade-input-area">
+                <label style="text-align: left; margin-bottom: 8px;">Enter your actual final grade percentage:</label>
+                <input type="number" id="modal-custom-grade-field" placeholder="e.g., 88">
+                <button class="btn" style="margin-top: 12px; width: 100%;" onclick="submitCustomModalGrade()">Save Final Grade</button>
+            </div>
+            
+            <button class="btn btn-danger" style="margin-top: 20px; background: none; color: var(--text-muted); font-size: 12px; text-decoration: underline;" onclick="closeDoneModal()">Cancel Closeout</button>
+        </div>
+    </div>
+
     <script>
         let appData = {
             userName: "",
             globalGoal: 80,
-            courses: []
+            courses: [],
+            currentAvgFilter: "all" // Persist calculation target configuration state
         };
 
         let activeCourseIndex = null;
         let editingGradeIndex = null; 
+        let modalTargetCourseIndex = null;
 
         window.onload = function() {
             const savedData = localStorage.getItem('gradeTrackerData');
             if (savedData) {
                 appData = JSON.parse(savedData);
                 if (appData.globalGoal === undefined) appData.globalGoal = 80;
+                if (appData.currentAvgFilter === undefined) appData.currentAvgFilter = "all";
+                
+                appData.courses.forEach(c => {
+                    if(!c.gradeLevel) c.gradeLevel = 'gr9'; 
+                });
             } else {
                 let name = prompt("Welcome! What is your name?");
                 appData.userName = name ? name : "Student";
                 appData.globalGoal = 80;
+                appData.currentAvgFilter = "all";
                 saveToLocalStorage();
             }
             document.getElementById('welcome-text').innerText = `Hello, ${appData.userName}`;
             document.getElementById('global-goal-input').value = appData.globalGoal;
+            document.getElementById('average-grade-filter').value = appData.currentAvgFilter;
             
             document.addEventListener('click', () => {
                 document.getElementById('improvement-menu').classList.remove('active');
@@ -510,6 +579,13 @@
             document.getElementById('improvement-menu').classList.toggle('active');
         }
 
+        function handleFilterChange() {
+            const filterValue = document.getElementById('average-grade-filter').value;
+            appData.currentAvgFilter = filterValue;
+            saveToLocalStorage();
+            calculateAndRenderGlobalMetrics();
+        }
+
         function updateGlobalGoal() {
             const val = parseFloat(document.getElementById('global-goal-input').value);
             if (!isNaN(val) && val >= 0) {
@@ -526,8 +602,22 @@
             improvementList.innerHTML = '';
 
             let lowCourses = [];
+            const activeFilter = appData.currentAvgFilter;
+
+            // Set Header context string descriptive title label 
+            const headerTitleText = document.getElementById('improvement-header-title');
+            if (activeFilter === 'all') {
+                headerTitleText.innerText = '⚠️ Needs Improvement (All)';
+            } else {
+                headerTitleText.innerText = `⚠️ Needs Improvement (${activeFilter.toUpperCase().replace('GR', 'Gr. ')})`;
+            }
 
             appData.courses.forEach(course => {
+                // Skip processing if filter is active and doesn't match this course's grade level
+                if (activeFilter !== 'all' && course.gradeLevel !== activeFilter) {
+                    return;
+                }
+
                 const currentGrade = calculateCourseGrade(course);
                 if (currentGrade !== '--') {
                     totalGradesSum += currentGrade;
@@ -535,7 +625,8 @@
                 }
                 
                 if (currentGrade !== '--' && currentGrade < course.goal) {
-                    lowCourses.push({ name: course.name, grade: currentGrade, goal: course.goal });
+                    let readableGradeLabel = course.gradeLevel.toUpperCase().replace('GR', 'Gr. ');
+                    lowCourses.push({ name: `${course.name} (${readableGradeLabel})`, grade: currentGrade, goal: course.goal });
                 }
             });
 
@@ -561,7 +652,7 @@
             }
 
             if (lowCourses.length === 0) {
-                improvementList.innerHTML = '<li class="improvement-item">🎉 All classes matching targets!</li>';
+                improvementList.innerHTML = '<li class="improvement-item">🎉 No classes matching criteria are below targets!</li>';
             } else {
                 lowCourses.forEach(c => {
                     const li = document.createElement('li');
@@ -573,70 +664,126 @@
         }
 
         function renderDashboard() {
-            const grid = document.getElementById('courses-grid');
-            grid.innerHTML = ''; 
+            const grids = {
+                gr9: document.getElementById('grid-gr9'),
+                gr10: document.getElementById('grid-gr10'),
+                gr11: document.getElementById('grid-gr11'),
+                gr12: document.getElementById('grid-gr12')
+            };
+
+            Object.keys(grids).forEach(k => { if(grids[k]) grids[k].innerHTML = ''; });
+            let counts = { gr9: 0, gr10: 0, gr11: 0, gr12: 0 };
 
             appData.courses.forEach((course, index) => {
                 const currentGrade = calculateCourseGrade(course);
                 const isBelowGoal = currentGrade !== '--' && currentGrade < course.goal;
+                const targetGrid = grids[course.gradeLevel];
+
+                if (!targetGrid) return;
+                counts[course.gradeLevel]++;
+
+                let cardStateClass = '';
+                if (course.isCompleted) {
+                    cardStateClass = (currentGrade >= course.goal) ? 'completed-passed' : 'completed-failed';
+                } else if (isBelowGoal) {
+                    cardStateClass = 'warning';
+                }
 
                 const card = document.createElement('div');
-                card.className = `course-card ${isBelowGoal ? 'warning' : ''}`;
+                card.className = `course-card ${cardStateClass}`;
                 card.setAttribute('onclick', `openCourseDetail(${index})`);
+
+                let badgeHtml = '';
+                let buttonHtml = `<button class="done-class-btn" onclick="openDoneModal(event, ${index})">Done</button>`;
+                
+                if (course.isCompleted) {
+                    buttonHtml = ''; 
+                    if (currentGrade >= course.goal) {
+                        badgeHtml = `<span class="status-badge passed">✓ Completed (Met Goal)</span>`;
+                    } else {
+                        badgeHtml = `<span class="status-badge failed">⚠ Completed (Below Goal)</span>`;
+                    }
+                }
 
                 card.innerHTML = `
                     <button class="delete-btn" onclick="deleteCourse(event, ${index})">×</button>
                     <h3 style="margin: 0;">${course.name}</h3>
                     <div class="grade-display">${currentGrade}${currentGrade === '--' ? '%' : '%'}</div>
                     <p style="margin: 0; font-size: 12px; color: var(--text-muted)">
-                        Goal: ${course.goal}% ${currentGrade === '--' ? '' : (isBelowGoal ? '⚠️ Below Goal' : '✨ Tracking Well')}
+                        Goal: ${course.goal}% ${course.isCompleted ? '' : (currentGrade === '--' ? '' : (isBelowGoal ? '⚠️ Below Goal' : '✨ Tracking Well'))}
                     </p>
-                    <button class="done-class-btn" onclick="completeCourseSequence(event, ${index})">Done</button>
+                    ${badgeHtml}
+                    ${buttonHtml}
                 `;
-                grid.appendChild(card);
+                targetGrid.appendChild(card);
+            });
+
+            Object.keys(grids).forEach(key => {
+                document.getElementById(`count-${key}`).innerText = counts[key];
+                if(counts[key] === 0 && grids[key]) {
+                    grids[key].innerHTML = `<div class="no-courses-placeholder">No courses logged for this grade tier yet.</div>`;
+                }
             });
 
             calculateAndRenderGlobalMetrics();
         }
 
-        // Three-Question Done Button Flow Sequence
-        function completeCourseSequence(event, index) {
-            event.stopPropagation(); // Stop card click navigation event from popping open
+        /* --- Modal Control Pipeline --- */
+        function openDoneModal(event, index) {
+            event.stopPropagation();
+            modalTargetCourseIndex = index;
             const course = appData.courses[index];
+            const currentPredicted = calculateCourseGrade(course);
+
+            document.getElementById('modal-course-title').innerText = course.name;
+            document.getElementById('modal-prediction-text').innerText = `Predicted Tracker Value: ${currentPredicted}%`;
+            document.getElementById('custom-grade-input-area').style.display = 'none';
+            document.getElementById('modal-custom-grade-field').value = '';
+
+            document.getElementById('custom-done-modal').classList.add('active');
+        }
+
+        function closeDoneModal() {
+            document.getElementById('custom-done-modal').classList.remove('active');
+            modalTargetCourseIndex = null;
+        }
+
+        function handleModalResponse(isEqual) {
+            const course = appData.courses[modalTargetCourseIndex];
             const predictedGrade = calculateCourseGrade(course);
-            let finalConfirmedGrade = predictedGrade;
 
-            // Question 1: Verify predicted grade match structure
-            let matchQuestion = confirm(`Course wrap-up for "${course.name}"!\n\nQuestion 1: Did your final grade match the current predicted tracker average of ${predictedGrade}%?`);
-            
-            if (!matchQuestion) {
-                // Question 2: Collect absolute actual mark if it deviated
-                let inputGrade = prompt(`Question 2: What was your actual final course grade percentage score?`);
-                let parsedInput = parseFloat(inputGrade);
-                
-                if (isNaN(parsedInput) || parsedInput < 0 || parsedInput > 120) {
-                    alert("Invalid entry. Proceeding with tracker average value calculation.");
-                } else {
-                    finalConfirmedGrade = Math.round(parsedInput);
-                }
-            }
-
-            // Question 3: Metric milestone celebration evaluate check 
-            let reachedGoal = finalConfirmedGrade >= course.goal;
-            if (reachedGoal) {
-                alert(`Question 3: Did you meet your goal of ${course.goal}%?\n\nYes! 🎉 Fantastic work finishing up with a ${finalConfirmedGrade}%!`);
+            if (isEqual) {
+                course.isCompleted = true;
+                course.finalOverrideGrade = predictedGrade;
+                saveToLocalStorage();
+                renderDashboard();
+                closeDoneModal();
             } else {
-                alert(`Question 3: Did you meet your goal of ${course.goal}%?\n\nNot quite this time, but you finished with a solid ${finalConfirmedGrade}%. Let's keep refining strategies next semester! 💪`);
+                document.getElementById('custom-grade-input-area').style.display = 'block';
+            }
+        }
+
+        function submitCustomModalGrade() {
+            const inputField = document.getElementById('modal-custom-grade-field');
+            const customGrade = parseFloat(inputField.value);
+
+            if (isNaN(customGrade) || customGrade < 0 || customGrade > 150) {
+                alert("Please input a valid percentage score entry.");
+                return;
             }
 
-            // Cleanup sequence: Archive/wipe file data from the system lists layout frame
-            appData.courses.splice(index, 1);
+            const course = appData.courses[modalTargetCourseIndex];
+            course.isCompleted = true;
+            course.finalOverrideGrade = Math.round(customGrade);
+
             saveToLocalStorage();
             renderDashboard();
+            closeDoneModal();
         }
 
         function addNewCourse() {
             const nameInput = document.getElementById('new-course-name');
+            const gradeSelect = document.getElementById('new-course-grade-level');
             const goalInput = document.getElementById('new-course-goal');
 
             if (!nameInput.value || !goalInput.value) {
@@ -646,8 +793,11 @@
 
             const newCourse = {
                 name: nameInput.value,
+                gradeLevel: gradeSelect.value, 
                 goal: parseFloat(goalInput.value),
-                grades: []
+                grades: [],
+                isCompleted: false,
+                finalOverrideGrade: null
             };
 
             appData.courses.push(newCourse);
@@ -656,6 +806,7 @@
 
             nameInput.value = '';
             goalInput.value = '';
+            gradeSelect.value = 'gr9';
             switchView('dashboard-view');
         }
 
@@ -686,6 +837,10 @@
         }
 
         function calculateCourseGrade(course) {
+            if (course.isCompleted && course.finalOverrideGrade !== null && course.finalOverrideGrade !== undefined) {
+                return course.finalOverrideGrade;
+            }
+
             const completedGrades = course.grades.filter(g => g.completed);
             if (completedGrades.length === 0) return '--';
 
@@ -732,8 +887,18 @@
             const course = appData.courses[index];
 
             document.getElementById('detail-course-title').innerText = course.name;
+            
+            let displayLabel = course.gradeLevel.toUpperCase().replace('GR', 'Grade ');
+            document.getElementById('detail-course-grade-badge').innerText = `Academic Level: ${displayLabel}`;
             document.getElementById('detail-course-goal-input').value = course.goal;
             
+            const formWrapper = document.getElementById('detail-editing-form-wrapper');
+            if (course.isCompleted) {
+                formWrapper.style.display = 'none';
+            } else {
+                formWrapper.style.display = 'block';
+            }
+
             renderGradesList();
             switchView('detail-view');
         }
@@ -752,6 +917,14 @@
                 const item = document.createElement('div');
                 item.className = "grade-item";
                 
+                let linksHtml = `
+                    <div class="action-links">
+                        <button onclick="editGradeItem(${idx})">Edit</button>
+                        <button class="del-item" onclick="deleteGradeItem(${idx})">Remove</button>
+                    </div>
+                `;
+                if(course.isCompleted) linksHtml = '';
+
                 if (g.completed) {
                     item.innerHTML = `
                         <div>
@@ -760,10 +933,7 @@
                         </div>
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <div style="font-weight:bold; color:var(--accent-color)">${g.score}%</div>
-                            <div class="action-links">
-                                <button onclick="editGradeItem(${idx})">Edit</button>
-                                <button class="del-item" onclick="deleteGradeItem(${idx})">Remove</button>
-                            </div>
+                            ${linksHtml}
                         </div>
                     `;
                 } else {
@@ -773,14 +943,11 @@
                             <strong style="color: var(--text-muted);">${g.name} (Upcoming)</strong> 
                             <span style="color:var(--text-muted); font-size:12px;">(${g.type})</span>
                             <br><small style="color:var(--text-muted)">Weight: ${g.weight}%</small>
-                            <div class="grade-target-text">🎯 Aim for: ${requiredTarget}% on remaining work to reach goal</div>
+                            <div class="grade-target-text">${course.isCompleted ? 'Pending calculation locked' : `🎯 Aim for: ${requiredTarget}% on remaining work`}</div>
                         </div>
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <div style="font-weight:bold; color:var(--text-muted)">Pending</div>
-                            <div class="action-links">
-                                <button onclick="editGradeItem(${idx})">Edit</button>
-                                <button class="del-item" onclick="deleteGradeItem(${idx})">Remove</button>
-                            </div>
+                            ${linksHtml}
                         </div>
                     `;
                 }
@@ -805,9 +972,7 @@
                 return;
             }
 
-            if (!isCompleted) {
-                score = 0; 
-            }
+            if (!isCompleted) score = 0; 
 
             const gradeObject = { name, type, weight, score, completed: isCompleted };
 
