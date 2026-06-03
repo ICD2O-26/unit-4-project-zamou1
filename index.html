@@ -172,6 +172,7 @@
             background-color: var(--card-bg);
             border-radius: 12px;
             padding: 20px;
+            padding-bottom: 70px; /* Leave clean structural space for the bottom class layout buttons */
             position: relative;
             cursor: pointer;
             border: 2px solid transparent;
@@ -198,6 +199,27 @@
         }
 
         .delete-btn:hover { color: var(--danger-color); }
+
+        .done-class-btn {
+            position: absolute;
+            bottom: 15px;
+            left: 20px;
+            right: 20px;
+            background-color: var(--success-color);
+            color: white;
+            border: none;
+            padding: 8px 0;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+            font-size: 13px;
+            transition: opacity 0.2s;
+        }
+
+        .done-class-btn:hover {
+            opacity: 0.9;
+        }
 
         .grade-display {
             font-size: 36px;
@@ -452,7 +474,6 @@
             document.getElementById('welcome-text').innerText = `Hello, ${appData.userName}`;
             document.getElementById('global-goal-input').value = appData.globalGoal;
             
-            // Close dropdown if user clicks anywhere else on the screen
             document.addEventListener('click', () => {
                 document.getElementById('improvement-menu').classList.remove('active');
             });
@@ -513,13 +534,11 @@
                     courseCountWithGrades++;
                 }
                 
-                // Track if class is running under its individual course target benchmark
                 if (currentGrade !== '--' && currentGrade < course.goal) {
                     lowCourses.push({ name: course.name, grade: currentGrade, goal: course.goal });
                 }
             });
 
-            // Calculate overall average metrics
             let finalGlobalAverage = '--';
             if (courseCountWithGrades > 0) {
                 finalGlobalAverage = Math.round(totalGradesSum / courseCountWithGrades);
@@ -534,7 +553,6 @@
             } else {
                 display.innerText = `${finalGlobalAverage}%`;
                 
-                // Check if total metric trends below global limit rules
                 if (finalGlobalAverage < appData.globalGoal) {
                     card.classList.add('below-goal');
                 } else {
@@ -542,7 +560,6 @@
                 }
             }
 
-            // Populate the Dropdown layout list with dynamic warning data arrays
             if (lowCourses.length === 0) {
                 improvementList.innerHTML = '<li class="improvement-item">🎉 All classes matching targets!</li>';
             } else {
@@ -574,11 +591,48 @@
                     <p style="margin: 0; font-size: 12px; color: var(--text-muted)">
                         Goal: ${course.goal}% ${currentGrade === '--' ? '' : (isBelowGoal ? '⚠️ Below Goal' : '✨ Tracking Well')}
                     </p>
+                    <button class="done-class-btn" onclick="completeCourseSequence(event, ${index})">Done</button>
                 `;
                 grid.appendChild(card);
             });
 
             calculateAndRenderGlobalMetrics();
+        }
+
+        // Three-Question Done Button Flow Sequence
+        function completeCourseSequence(event, index) {
+            event.stopPropagation(); // Stop card click navigation event from popping open
+            const course = appData.courses[index];
+            const predictedGrade = calculateCourseGrade(course);
+            let finalConfirmedGrade = predictedGrade;
+
+            // Question 1: Verify predicted grade match structure
+            let matchQuestion = confirm(`Course wrap-up for "${course.name}"!\n\nQuestion 1: Did your final grade match the current predicted tracker average of ${predictedGrade}%?`);
+            
+            if (!matchQuestion) {
+                // Question 2: Collect absolute actual mark if it deviated
+                let inputGrade = prompt(`Question 2: What was your actual final course grade percentage score?`);
+                let parsedInput = parseFloat(inputGrade);
+                
+                if (isNaN(parsedInput) || parsedInput < 0 || parsedInput > 120) {
+                    alert("Invalid entry. Proceeding with tracker average value calculation.");
+                } else {
+                    finalConfirmedGrade = Math.round(parsedInput);
+                }
+            }
+
+            // Question 3: Metric milestone celebration evaluate check 
+            let reachedGoal = finalConfirmedGrade >= course.goal;
+            if (reachedGoal) {
+                alert(`Question 3: Did you meet your goal of ${course.goal}%?\n\nYes! 🎉 Fantastic work finishing up with a ${finalConfirmedGrade}%!`);
+            } else {
+                alert(`Question 3: Did you meet your goal of ${course.goal}%?\n\nNot quite this time, but you finished with a solid ${finalConfirmedGrade}%. Let's keep refining strategies next semester! 💪`);
+            }
+
+            // Cleanup sequence: Archive/wipe file data from the system lists layout frame
+            appData.courses.splice(index, 1);
+            saveToLocalStorage();
+            renderDashboard();
         }
 
         function addNewCourse() {
