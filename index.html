@@ -14,6 +14,7 @@
             --text-main: #f3f4f6;
             --text-muted: #9ca3af;
             --success-color: #10b981;
+            --warning-bg: rgba(239, 68, 68, 0.1);
         }
 
         body {
@@ -28,9 +29,10 @@
         header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             max-width: 1000px;
             margin: 0 auto 30px auto;
+            gap: 20px;
         }
 
         h1 { margin: 0; font-size: 24px; }
@@ -47,6 +49,115 @@
 
         .btn-danger { background-color: var(--danger-color); }
         .btn-success { background-color: var(--success-color); }
+
+        /* --- Global Stats Card & Dropdown --- */
+        .global-stats-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            position: relative;
+        }
+
+        .global-average-card {
+            background-color: var(--card-bg);
+            padding: 12px 20px;
+            border-radius: 12px;
+            text-align: right;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.3s, background-color 0.3s;
+            user-select: none;
+        }
+
+        .global-average-card.below-goal {
+            border-color: var(--danger-color);
+            background-color: var(--warning-bg);
+        }
+
+        .global-average-title {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }
+
+        .global-average-num {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--success-color);
+        }
+
+        .global-average-card.below-goal .global-average-num {
+            color: var(--danger-color);
+        }
+
+        .global-goal-row {
+            margin-top: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .global-goal-row input {
+            width: 45px;
+            padding: 2px 4px;
+            background: #2a2a35;
+            border: 1px solid #3f3f46;
+            color: white;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .improvement-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 10px;
+            background-color: #1e1e24;
+            border: 1px solid #3f3f46;
+            border-radius: 10px;
+            padding: 15px;
+            width: 280px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+
+        .improvement-dropdown.active {
+            display: block;
+        }
+
+        .improvement-dropdown h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: var(--text-main);
+            border-bottom: 1px solid #3f3f46;
+            padding-bottom: 5px;
+        }
+
+        .improvement-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .improvement-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            padding: 6px 0;
+            color: var(--text-muted);
+        }
+
+        .improvement-item span.alert-mark {
+            color: var(--danger-color);
+            font-weight: bold;
+        }
 
         /* --- Dashboard Grid --- */
         .dashboard {
@@ -71,7 +182,6 @@
             transform: translateY(-4px);
         }
 
-        /* Target grade warning outline */
         .course-card.warning {
             border-color: var(--danger-color);
         }
@@ -133,7 +243,6 @@
             box-sizing: border-box;
         }
 
-        /* Inline formatting for the completion checkbox */
         .checkbox-group {
             display: flex;
             align-items: center;
@@ -161,6 +270,7 @@
             display: flex;
             justify-content: center;
             box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
+            z-index: 90;
         }
 
         .add-class-trigger {
@@ -206,15 +316,9 @@
             text-decoration: underline;
         }
 
-        .action-links button:hover {
-            color: white;
-        }
+        .action-links button:hover { color: white; }
+        .action-links button.del-item:hover { color: var(--danger-color); }
 
-        .action-links button.del-item:hover {
-            color: var(--danger-color);
-        }
-
-        /* --- Live Goal Editor Layout --- */
         .goal-editor-zone {
             display: flex;
             align-items: center;
@@ -223,14 +327,8 @@
             max-width: 260px;
         }
 
-        .goal-editor-zone input {
-            padding: 6px 10px;
-        }
-
-        .goal-editor-zone .btn {
-            padding: 6px 12px;
-            font-size: 13px;
-        }
+        .goal-editor-zone input { padding: 6px 10px; }
+        .goal-editor-zone .btn { padding: 6px 12px; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -240,8 +338,26 @@
             <div>
                 <h1 id="welcome-text">My Dashboard</h1>
                 <p style="color: var(--text-muted); margin: 5px 0 0 0;">Track your semester progress</p>
+                <button class="btn btn-danger" onclick="resetApp()" style="margin-top: 10px; padding: 6px 12px; font-size: 12px;">Reset App</button>
             </div>
-            <button class="btn btn-danger" onclick="resetApp()">Reset App</button>
+
+            <div class="global-stats-container">
+                <div class="global-average-card" id="global-avg-card" onclick="toggleImprovementDropdown(event)">
+                    <div class="global-average-title">Total Average</div>
+                    <div class="global-average-num" id="global-avg-display">--%</div>
+                    <div class="global-goal-row" onclick="event.stopPropagation()">
+                        <span>Goal:</span>
+                        <input type="number" id="global-goal-input" value="80" onchange="updateGlobalGoal()">
+                        <span>%</span>
+                    </div>
+                </div>
+
+                <div class="improvement-dropdown" id="improvement-menu">
+                    <h4>⚠️ Needs Improvement</h4>
+                    <ul class="improvement-list" id="improvement-list-items">
+                        </ul>
+                </div>
+            </div>
         </header>
 
         <div class="dashboard" id="courses-grid">
@@ -315,6 +431,7 @@
     <script>
         let appData = {
             userName: "",
+            globalGoal: 80,
             courses: []
         };
 
@@ -325,12 +442,21 @@
             const savedData = localStorage.getItem('gradeTrackerData');
             if (savedData) {
                 appData = JSON.parse(savedData);
+                if (appData.globalGoal === undefined) appData.globalGoal = 80;
             } else {
                 let name = prompt("Welcome! What is your name?");
                 appData.userName = name ? name : "Student";
+                appData.globalGoal = 80;
                 saveToLocalStorage();
             }
             document.getElementById('welcome-text').innerText = `Hello, ${appData.userName}`;
+            document.getElementById('global-goal-input').value = appData.globalGoal;
+            
+            // Close dropdown if user clicks anywhere else on the screen
+            document.addEventListener('click', () => {
+                document.getElementById('improvement-menu').classList.remove('active');
+            });
+
             renderDashboard();
         };
 
@@ -358,6 +484,77 @@
             }
         }
 
+        function toggleImprovementDropdown(event) {
+            event.stopPropagation();
+            document.getElementById('improvement-menu').classList.toggle('active');
+        }
+
+        function updateGlobalGoal() {
+            const val = parseFloat(document.getElementById('global-goal-input').value);
+            if (!isNaN(val) && val >= 0) {
+                appData.globalGoal = val;
+                saveToLocalStorage();
+                calculateAndRenderGlobalMetrics();
+            }
+        }
+
+        function calculateAndRenderGlobalMetrics() {
+            let totalGradesSum = 0;
+            let courseCountWithGrades = 0;
+            const improvementList = document.getElementById('improvement-list-items');
+            improvementList.innerHTML = '';
+
+            let lowCourses = [];
+
+            appData.courses.forEach(course => {
+                const currentGrade = calculateCourseGrade(course);
+                if (currentGrade !== '--') {
+                    totalGradesSum += currentGrade;
+                    courseCountWithGrades++;
+                }
+                
+                // Track if class is running under its individual course target benchmark
+                if (currentGrade !== '--' && currentGrade < course.goal) {
+                    lowCourses.push({ name: course.name, grade: currentGrade, goal: course.goal });
+                }
+            });
+
+            // Calculate overall average metrics
+            let finalGlobalAverage = '--';
+            if (courseCountWithGrades > 0) {
+                finalGlobalAverage = Math.round(totalGradesSum / courseCountWithGrades);
+            }
+
+            const display = document.getElementById('global-avg-display');
+            const card = document.getElementById('global-avg-card');
+
+            if (finalGlobalAverage === '--') {
+                display.innerText = '--%';
+                card.classList.remove('below-goal');
+            } else {
+                display.innerText = `${finalGlobalAverage}%`;
+                
+                // Check if total metric trends below global limit rules
+                if (finalGlobalAverage < appData.globalGoal) {
+                    card.classList.add('below-goal');
+                } else {
+                    card.classList.remove('below-goal');
+                }
+            }
+
+            // Populate the Dropdown layout list with dynamic warning data arrays
+            if (lowCourses.length === 0) {
+                improvementList.innerHTML = '<li class="improvement-item">🎉 All classes matching targets!</li>';
+            } else {
+                lowCourses.forEach(c => {
+                    const li = document.createElement('li');
+                    li.className = 'improvement-item';
+                    li.innerHTML = `<span>${c.name}</span> <span class="alert-mark">${c.grade}% / Goal: ${c.goal}%</span>`;
+                    improvementList.appendChild(li);
+                });
+            }
+        }
+
         function renderDashboard() {
             const grid = document.getElementById('courses-grid');
             grid.innerHTML = ''; 
@@ -380,6 +577,8 @@
                 `;
                 grid.appendChild(card);
             });
+
+            calculateAndRenderGlobalMetrics();
         }
 
         function addNewCourse() {
@@ -415,11 +614,9 @@
                 return;
             }
 
-            // Save new target limit setting to currently active course index
             appData.courses[activeCourseIndex].goal = newGoalValue;
             saveToLocalStorage();
             
-            // Re-render everything with the new goal math rule
             renderGradesList();
             renderDashboard();
             alert("Goal updated successfully!");
@@ -462,15 +659,12 @@
             });
 
             let pointsNeededForGoal = course.goal - pointsEarnedSoFar;
-
             if (pointsNeededForGoal <= 0) return 0;
 
             let remainingWeightInCourse = 100 - totalWeightUsed;
-
             if (remainingWeightInCourse <= 0) return 100;
 
             let requiredAverageForRemainingWork = (pointsNeededForGoal / remainingWeightInCourse) * 100;
-
             let finalTarget = Math.ceil(requiredAverageForRemainingWork);
             
             if (finalTarget > 100) return 100;
