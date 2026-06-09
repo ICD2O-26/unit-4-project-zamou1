@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Multi-Grade Academic Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         /* --- Clean, Modern Aesthetic Styles --- */
         :root {
@@ -57,6 +58,13 @@
             flex-direction: column;
             align-items: flex-end;
             position: relative;
+            gap: 10px;
+        }
+
+        .action-row-upper {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
         }
 
         .global-average-card {
@@ -172,6 +180,21 @@
         .improvement-item span.alert-mark {
             color: var(--danger-color);
             font-weight: bold;
+        }
+
+        /* --- Trend Journey Analytics Panel --- */
+        .analytics-graph-container {
+            max-width: 1000px;
+            margin: 20px auto 0 auto;
+            background-color: var(--card-bg);
+            border-radius: 14px;
+            padding: 20px;
+            box-sizing: border-box;
+            border: 1px solid #2d2d39;
+            display: none; /* Controlled dynamically via state machine button */
+        }
+        .analytics-graph-container.active {
+            display: block;
         }
 
         /* --- Grade Track Layout Sections --- */
@@ -359,32 +382,46 @@
             </div>
 
             <div class="global-stats-container">
-                <div class="global-average-card" id="global-avg-card" onclick="toggleImprovementDropdown(event)">
-                    <div class="global-average-title">
-                        <span id="avg-title-text">Average</span>
-                        <select id="average-grade-filter" class="avg-filter-select" onclick="event.stopPropagation()" onchange="handleFilterChange()">
-                            <option value="all">All Grades</option>
-                            <option value="gr9">Gr. 9 Only</option>
-                            <option value="gr10">Gr. 10 Only</option>
-                            <option value="gr11">Gr. 11 Only</option>
-                            <option value="gr12">Gr. 12 Only</option>
-                        </select>
-                    </div>
-                    <div class="global-average-num" id="global-avg-display">--%</div>
-                    <div class="global-goal-row" onclick="event.stopPropagation()">
-                        <span>Goal:</span>
-                        <input type="number" id="global-goal-input" value="80" onchange="updateGlobalGoal()">
-                        <span>%</span>
+                <div class="action-row-upper">
+                    <button class="btn" id="toggle-trend-btn" onclick="toggleTrendGraph()" style="background-color: #3f3f46; font-size: 13px; display: flex; align-items: center; gap: 6px; padding: 12px 14px; border-radius: 12px;">
+                        📊 <span>View Trend Chart</span>
+                    </button>
+
+                    <div class="global-average-card" id="global-avg-card" onclick="toggleImprovementDropdown(event)">
+                        <div class="global-average-title">
+                            <span id="avg-title-text">Average</span>
+                            <select id="average-grade-filter" class="avg-filter-select" onclick="event.stopPropagation()" onchange="handleFilterChange()">
+                                <option value="all">All Grades</option>
+                                <option value="gr9">Gr. 9 Only</option>
+                                <option value="gr10">Gr. 10 Only</option>
+                                <option value="gr11">Gr. 11 Only</option>
+                                <option value="gr12">Gr. 12 Only</option>
+                            </select>
+                        </div>
+                        <div class="global-average-num" id="global-avg-display">--%</div>
+                        <div class="global-goal-row" onclick="event.stopPropagation()">
+                            <span>Goal:</span>
+                            <input type="number" id="global-goal-input" value="80" onchange="updateGlobalGoal()">
+                            <span>%</span>
+                        </div>
                     </div>
                 </div>
 
                 <div class="improvement-dropdown" id="improvement-menu">
                     <h4 id="improvement-header-title">⚠️ Needs Improvement</h4>
-                    <ul class="improvement-list" id="improvement-list-items">
-                        </ul>
+                    <ul class="improvement-list" id="improvement-list-items"></ul>
                 </div>
             </div>
         </header>
+
+        <div class="analytics-graph-container" id="trend-graph-wrapper">
+            <h3 style="margin: 0 0 15px 0; font-size: 16px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                📈 High School Progress &amp; Journey Trend
+            </h3>
+            <div style="width: 100%; height: 260px; position: relative;">
+                <canvas id="journeyTrendChart"></canvas>
+            </div>
+        </div>
 
         <div class="timeline-container" id="timeline-wrapper">
             
@@ -484,8 +521,7 @@
             </div>
 
             <h3>Graded & Planned Items</h3>
-            <div id="grades-list-container">
-                </div>
+            <div id="grades-list-container"></div>
         </div>
     </div>
 
@@ -515,12 +551,14 @@
             userName: "",
             globalGoal: 80,
             courses: [],
-            currentAvgFilter: "all" // Persist calculation target configuration state
+            currentAvgFilter: "all" 
         };
 
         let activeCourseIndex = null;
         let editingGradeIndex = null; 
         let modalTargetCourseIndex = null;
+        let trendChartInstance = null; // Chart instance container reference variable
+        let isTrendChartVisible = false;
 
         window.onload = function() {
             const savedData = localStorage.getItem('gradeTrackerData');
@@ -558,6 +596,9 @@
             document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
             clearGradeForm();
+            if (viewId === 'dashboard-view' && isTrendChartVisible) {
+                renderTrendGraph();
+            }
         }
 
         function toggleScoreInput(checkbox) {
@@ -592,7 +633,95 @@
                 appData.globalGoal = val;
                 saveToLocalStorage();
                 calculateAndRenderGlobalMetrics();
+                if (isTrendChartVisible) renderTrendGraph();
             }
+        }
+
+        /* --- Trend Chart Engine --- */
+        function toggleTrendGraph() {
+            const container = document.getElementById('trend-graph-wrapper');
+            const buttonText = document.querySelector('#toggle-trend-btn span');
+            
+            isTrendChartVisible = !isTrendChartVisible;
+            
+            if (isTrendChartVisible) {
+                container.classList.add('active');
+                buttonText.innerText = "Hide Trend Chart";
+                renderTrendGraph();
+            } else {
+                container.classList.remove('active');
+                buttonText.innerText = "View Trend Chart";
+            }
+        }
+
+        function renderTrendGraph() {
+            const ctx = document.getElementById('journeyTrendChart').getContext('2d');
+            
+            // Calculate independent tier context averages
+            const tiers = ['gr9', 'gr10', 'gr11', 'gr12'];
+            const averages = t => {
+                let courses = appData.courses.filter(c => c.gradeLevel === t);
+                let validScores = courses.map(c => calculateCourseGrade(c)).filter(s => s !== '--');
+                if (validScores.length === 0) return null;
+                return Math.round(validScores.reduce((a,b) => a + b, 0) / validScores.length);
+            };
+
+            const dataPoints = tiers.map(t => averages(t));
+            const targetGoals = tiers.map(() => appData.globalGoal);
+
+            if (trendChartInstance) {
+                trendChartInstance.destroy();
+            }
+
+            trendChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'],
+                    datasets: [
+                        {
+                            label: 'My Average Score Track',
+                            data: dataPoints,
+                            borderColor: '#6366f1',
+                            backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                            borderWidth: 3,
+                            tension: 0.35,
+                            pointBackgroundColor: '#6366f1',
+                            pointRadius: 5,
+                            spanGaps: true 
+                        },
+                        {
+                            label: 'Global Goal Threshold Target',
+                            data: targetGoals,
+                            borderColor: '#ef4444',
+                            borderWidth: 2,
+                            borderDash: [6, 6],
+                            pointRadius: 0,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#f3f4f6', font: { family: 'Segoe UI' } }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 100,
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#2d2d39' }
+                        },
+                        x: {
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#2d2d39' }
+                        }
+                    }
+                }
+            });
         }
 
         function calculateAndRenderGlobalMetrics() {
@@ -604,7 +733,6 @@
             let lowCourses = [];
             const activeFilter = appData.currentAvgFilter;
 
-            // Set Header context string descriptive title label 
             const headerTitleText = document.getElementById('improvement-header-title');
             if (activeFilter === 'all') {
                 headerTitleText.innerText = '⚠️ Needs Improvement (All)';
@@ -613,7 +741,6 @@
             }
 
             appData.courses.forEach(course => {
-                // Skip processing if filter is active and doesn't match this course's grade level
                 if (activeFilter !== 'all' && course.gradeLevel !== activeFilter) {
                     return;
                 }
@@ -726,9 +853,174 @@
             });
 
             calculateAndRenderGlobalMetrics();
+            if (isTrendChartVisible) renderTrendGraph();
         }
 
-        /* --- Modal Control Pipeline --- */
+        function calculateCourseGrade(course) {
+            if (course.isCompleted && course.finalOverrideGrade !== undefined && course.finalOverrideGrade !== null) {
+                return course.finalOverrideGrade;
+            }
+            const completedGrades = (course.grades || []).filter(g => g.completed !== false);
+            if (completedGrades.length === 0) return '--';
+
+            let totalWeightUsed = 0;
+            let weightedSum = 0;
+
+            completedGrades.forEach(grade => {
+                const w = parseFloat(grade.weight) || 0;
+                const s = parseFloat(grade.score) || 0;
+                weightedSum += (s * (w / 100));
+                totalWeightUsed += w;
+            });
+
+            if (totalWeightUsed === 0) return '--';
+            return Math.round((weightedSum / totalWeightUsed) * 100);
+        }
+
+        function openCourseDetail(index) {
+            activeCourseIndex = index;
+            const course = appData.courses[index];
+            switchView('detail-view');
+            
+            const readableGradeLabel = course.gradeLevel.toUpperCase().replace('GR', 'Grade ');
+            document.getElementById('detail-course-title').innerText = course.name;
+            document.getElementById('detail-course-grade-badge').innerText = `Academic Tier Context: ${readableGradeLabel}`;
+            document.getElementById('detail-course-goal-input').value = course.goal;
+
+            const formWrapper = document.getElementById('detail-editing-form-wrapper');
+            formWrapper.style.display = course.isCompleted ? 'none' : 'block';
+            renderGradesList();
+        }
+
+        function updateCourseGoal() {
+            const val = parseFloat(document.getElementById('detail-course-goal-input').value);
+            if (!isNaN(val) && val >= 0 && activeCourseIndex !== null) {
+                appData.courses[activeCourseIndex].goal = val;
+                saveToLocalStorage();
+                renderDashboard();
+                alert("Target goal updated successfully!");
+            }
+        }
+
+        function deleteCourse(event, index) {
+            event.stopPropagation();
+            if (confirm("Are you sure you want to delete this course and all associated tracking data?")) {
+                appData.courses.splice(index, 1);
+                saveToLocalStorage();
+                renderDashboard();
+            }
+        }
+
+        function addGradeToCourse() {
+            if (activeCourseIndex === null) return;
+
+            const name = document.getElementById('grade-name').value.trim();
+            const type = document.getElementById('grade-type').value;
+            const weight = parseFloat(document.getElementById('grade-weight').value);
+            const isCompleted = document.getElementById('grade-completed').checked;
+            let score = parseFloat(document.getElementById('grade-score').value);
+
+            if (!name || isNaN(weight) || weight <= 0) {
+                alert("Please verify assignment configurations. A name and structural weight are required.");
+                return;
+            }
+            if (isCompleted && (isNaN(score) || score < 0)) {
+                alert("Please add a valid achieved score percentage summary.");
+                return;
+            }
+            if (!isCompleted) score = null;
+
+            const newEntry = { name, type, weight, score, completed: isCompleted };
+            const course = appData.courses[activeCourseIndex];
+
+            if (editingGradeIndex !== null) {
+                course.grades[editingGradeIndex] = newEntry;
+                editingGradeIndex = null;
+            } else {
+                if (!course.grades) course.grades = [];
+                course.grades.push(newEntry);
+            }
+
+            saveToLocalStorage();
+            clearGradeForm();
+            renderGradesList();
+            renderDashboard();
+        }
+
+        function renderGradesList() {
+            const container = document.getElementById('grades-list-container');
+            container.innerHTML = '';
+            if (activeCourseIndex === null) return;
+            const course = appData.courses[activeCourseIndex];
+
+            if (!course.grades || course.grades.length === 0) {
+                container.innerHTML = '<div class="no-courses-placeholder">No evaluations recorded for this course track yet.</div>';
+                return;
+            }
+
+            course.grades.forEach((grade, idx) => {
+                const item = document.createElement('div');
+                item.className = 'grade-item';
+                let statusDetails = grade.completed === false ? 
+                    `<span style="color: var(--text-muted); font-style: italic;">[Incomplete / Planned]</span>` : 
+                    `<strong style="color: var(--accent-color);">${grade.score}%</strong>`;
+
+                let actionPanel = course.isCompleted ? '' : `
+                    <div class="action-links">
+                        <button onclick="editGradeEntry(${idx})">Edit</button>
+                        <button class="del-item" onclick="deleteGradeEntry(${idx})">Remove</button>
+                    </div>`;
+
+                item.innerHTML = `
+                    <div>
+                        <div style="font-weight: 600;">${grade.name} <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">(${grade.type})</span></div>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                            Weight Breakdown Share: ${grade.weight}% | Score: ${statusDetails}
+                        </div>
+                    </div>
+                    ${actionPanel}
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function editGradeEntry(idx) {
+            const grade = appData.courses[activeCourseIndex].grades[idx];
+            editingGradeIndex = idx;
+            document.getElementById('grade-name').value = grade.name;
+            document.getElementById('grade-type').value = grade.type;
+            document.getElementById('grade-weight').value = grade.weight;
+            
+            const checkbox = document.getElementById('grade-completed');
+            checkbox.checked = (grade.completed !== false);
+            toggleScoreInput(checkbox);
+
+            if (grade.completed !== false) document.getElementById('grade-score').value = grade.score;
+
+            document.getElementById('submit-grade-btn').innerText = "Update Assignment Properties";
+            document.getElementById('cancel-edit-btn').style.display = 'inline-block';
+        }
+
+        function deleteGradeEntry(idx) {
+            if (confirm("Remove evaluation parameter?")) {
+                appData.courses[activeCourseIndex].grades.splice(idx, 1);
+                saveToLocalStorage();
+                renderGradesList();
+                renderDashboard();
+            }
+        }
+
+        function clearGradeForm() {
+            editingGradeIndex = null;
+            document.getElementById('grade-name').value = '';
+            document.getElementById('grade-weight').value = '';
+            document.getElementById('grade-score').value = '';
+            document.getElementById('grade-completed').checked = true;
+            toggleScoreInput(document.getElementById('grade-completed'));
+            document.getElementById('submit-grade-btn').innerText = "Add Assignment Entry";
+            document.getElementById('cancel-edit-btn').style.display = 'none';
+        }
+
         function openDoneModal(event, index) {
             event.stopPropagation();
             modalTargetCourseIndex = index;
@@ -739,7 +1031,6 @@
             document.getElementById('modal-prediction-text').innerText = `Predicted Tracker Value: ${currentPredicted}%`;
             document.getElementById('custom-grade-input-area').style.display = 'none';
             document.getElementById('modal-custom-grade-field').value = '';
-
             document.getElementById('custom-done-modal').classList.add('active');
         }
 
@@ -750,11 +1041,9 @@
 
         function handleModalResponse(isEqual) {
             const course = appData.courses[modalTargetCourseIndex];
-            const predictedGrade = calculateCourseGrade(course);
-
             if (isEqual) {
                 course.isCompleted = true;
-                course.finalOverrideGrade = predictedGrade;
+                course.finalOverrideGrade = calculateCourseGrade(course);
                 saveToLocalStorage();
                 renderDashboard();
                 closeDoneModal();
@@ -791,249 +1080,24 @@
                 return;
             }
 
-            const newCourse = {
+            appData.courses.push({
                 name: nameInput.value,
                 gradeLevel: gradeSelect.value, 
                 goal: parseFloat(goalInput.value),
                 grades: [],
-                isCompleted: false,
-                finalOverrideGrade: null
-            };
+                isCompleted: false
+            });
 
-            appData.courses.push(newCourse);
             saveToLocalStorage();
-            renderDashboard();
-
             nameInput.value = '';
             goalInput.value = '';
-            gradeSelect.value = 'gr9';
             switchView('dashboard-view');
-        }
-
-        function updateCourseGoal() {
-            const goalInput = document.getElementById('detail-course-goal-input');
-            const newGoalValue = parseFloat(goalInput.value);
-
-            if (isNaN(newGoalValue) || newGoalValue < 0) {
-                alert("Please enter a valid numeric goal percentage.");
-                return;
-            }
-
-            appData.courses[activeCourseIndex].goal = newGoalValue;
-            saveToLocalStorage();
-            
-            renderGradesList();
             renderDashboard();
-            alert("Goal updated successfully!");
-        }
-
-        function deleteCourse(event, index) {
-            event.stopPropagation(); 
-            if(confirm("Are you sure you want to delete this course? All data inside will be wiped out.")) {
-                appData.courses.splice(index, 1);
-                saveToLocalStorage();
-                renderDashboard();
-            }
-        }
-
-        function calculateCourseGrade(course) {
-            if (course.isCompleted && course.finalOverrideGrade !== null && course.finalOverrideGrade !== undefined) {
-                return course.finalOverrideGrade;
-            }
-
-            const completedGrades = course.grades.filter(g => g.completed);
-            if (completedGrades.length === 0) return '--';
-
-            let totalWeightedScores = 0;
-            let totalWeightEncountered = 0;
-
-            completedGrades.forEach(g => {
-                totalWeightedScores += (g.score * (g.weight / 100));
-                totalWeightEncountered += g.weight;
-            });
-
-            if (totalWeightEncountered === 0) return '--';
-            return Math.round((totalWeightedScores / (totalWeightEncountered / 100)));
-        }
-
-        function calculateTargetNeeded(course, targetWeight) {
-            let pointsEarnedSoFar = 0;
-            let totalWeightUsed = 0;
-
-            course.grades.forEach(g => {
-                if (g.completed) {
-                    pointsEarnedSoFar += (g.score * (g.weight / 100));
-                    totalWeightUsed += g.weight;
-                }
-            });
-
-            let pointsNeededForGoal = course.goal - pointsEarnedSoFar;
-            if (pointsNeededForGoal <= 0) return 0;
-
-            let remainingWeightInCourse = 100 - totalWeightUsed;
-            if (remainingWeightInCourse <= 0) return 100;
-
-            let requiredAverageForRemainingWork = (pointsNeededForGoal / remainingWeightInCourse) * 100;
-            let finalTarget = Math.ceil(requiredAverageForRemainingWork);
-            
-            if (finalTarget > 100) return 100;
-            if (finalTarget < 0) return 0;
-            
-            return finalTarget;
-        }
-
-        function openCourseDetail(index) {
-            activeCourseIndex = index;
-            const course = appData.courses[index];
-
-            document.getElementById('detail-course-title').innerText = course.name;
-            
-            let displayLabel = course.gradeLevel.toUpperCase().replace('GR', 'Grade ');
-            document.getElementById('detail-course-grade-badge').innerText = `Academic Level: ${displayLabel}`;
-            document.getElementById('detail-course-goal-input').value = course.goal;
-            
-            const formWrapper = document.getElementById('detail-editing-form-wrapper');
-            if (course.isCompleted) {
-                formWrapper.style.display = 'none';
-            } else {
-                formWrapper.style.display = 'block';
-            }
-
-            renderGradesList();
-            switchView('detail-view');
-        }
-
-        function renderGradesList() {
-            const container = document.getElementById('grades-list-container');
-            container.innerHTML = '';
-            const course = appData.courses[activeCourseIndex];
-
-            if(course.grades.length === 0) {
-                container.innerHTML = '<p style="color:var(--text-muted)">No assignments added yet.</p>';
-                return;
-            }
-
-            course.grades.forEach((g, idx) => {
-                const item = document.createElement('div');
-                item.className = "grade-item";
-                
-                let linksHtml = `
-                    <div class="action-links">
-                        <button onclick="editGradeItem(${idx})">Edit</button>
-                        <button class="del-item" onclick="deleteGradeItem(${idx})">Remove</button>
-                    </div>
-                `;
-                if(course.isCompleted) linksHtml = '';
-
-                if (g.completed) {
-                    item.innerHTML = `
-                        <div>
-                            <strong>${g.name}</strong> <span style="color:var(--text-muted); font-size:12px;">(${g.type})</span>
-                            <br><small style="color:var(--text-muted)">Weight: ${g.weight}%</small>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 15px;">
-                            <div style="font-weight:bold; color:var(--accent-color)">${g.score}%</div>
-                            ${linksHtml}
-                        </div>
-                    `;
-                } else {
-                    const requiredTarget = calculateTargetNeeded(course, g.weight);
-                    item.innerHTML = `
-                        <div>
-                            <strong style="color: var(--text-muted);">${g.name} (Upcoming)</strong> 
-                            <span style="color:var(--text-muted); font-size:12px;">(${g.type})</span>
-                            <br><small style="color:var(--text-muted)">Weight: ${g.weight}%</small>
-                            <div class="grade-target-text">${course.isCompleted ? 'Pending calculation locked' : `🎯 Aim for: ${requiredTarget}% on remaining work`}</div>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 15px;">
-                            <div style="font-weight:bold; color:var(--text-muted)">Pending</div>
-                            ${linksHtml}
-                        </div>
-                    `;
-                }
-                container.appendChild(item);
-            });
-        }
-
-        function addGradeToCourse() {
-            const isCompleted = document.getElementById('grade-completed').checked;
-            const name = document.getElementById('grade-name').value;
-            const type = document.getElementById('grade-type').value;
-            const weight = parseFloat(document.getElementById('grade-weight').value);
-            let score = parseFloat(document.getElementById('grade-score').value);
-
-            if (!name || isNaN(weight)) {
-                alert("Please give your assignment a name and weight value.");
-                return;
-            }
-
-            if (isCompleted && isNaN(score)) {
-                alert("Please enter the grade score you achieved.");
-                return;
-            }
-
-            if (!isCompleted) score = 0; 
-
-            const gradeObject = { name, type, weight, score, completed: isCompleted };
-
-            if (editingGradeIndex !== null) {
-                appData.courses[activeCourseIndex].grades[editingGradeIndex] = gradeObject;
-                editingGradeIndex = null;
-            } else {
-                appData.courses[activeCourseIndex].grades.push(gradeObject);
-            }
-
-            saveToLocalStorage();
-            renderGradesList();
-            renderDashboard(); 
-            clearGradeForm();
-        }
-
-        function editGradeItem(idx) {
-            editingGradeIndex = idx;
-            const grade = appData.courses[activeCourseIndex].grades[idx];
-
-            document.getElementById('form-action-title').innerText = "Edit Assignment / Task";
-            document.getElementById('submit-grade-btn').innerText = "Update Assignment";
-            document.getElementById('cancel-edit-btn').style.display = "inline-block";
-
-            document.getElementById('grade-name').value = grade.name;
-            document.getElementById('grade-type').value = grade.type;
-            document.getElementById('grade-weight').value = grade.weight;
-            
-            document.getElementById('grade-completed').checked = grade.completed;
-            toggleScoreInput(document.getElementById('grade-completed'));
-            
-            if (grade.completed) {
-                document.getElementById('grade-score').value = grade.score;
-            }
-        }
-
-        function deleteGradeItem(idx) {
-            if(confirm("Remove this item entry from the course timeline?")) {
-                appData.courses[activeCourseIndex].grades.splice(idx, 1);
-                saveToLocalStorage();
-                renderGradesList();
-                renderDashboard(); 
-            }
-        }
-
-        function clearGradeForm() {
-            editingGradeIndex = null;
-            document.getElementById('form-action-title').innerText = "Add an Assignment / Task";
-            document.getElementById('submit-grade-btn').innerText = "Add Assignment Entry";
-            document.getElementById('cancel-edit-btn').style.display = "none";
-
-            document.getElementById('grade-name').value = '';
-            document.getElementById('grade-weight').value = '';
-            document.getElementById('grade-score').value = '';
-            document.getElementById('grade-completed').checked = true;
-            toggleScoreInput(document.getElementById('grade-completed'));
         }
 
         function resetApp() {
-            if(confirm("Reset everything? All your classes and recorded grades will be permanently deleted.")) {
-                localStorage.clear();
+            if (confirm("⚠️ Operational Reset Alert: Delete all registered coursework data data points globally?")) {
+                localStorage.removeItem('gradeTrackerData');
                 location.reload();
             }
         }
