@@ -191,7 +191,7 @@
             padding: 20px;
             box-sizing: border-box;
             border: 1px solid #2d2d39;
-            display: none; /* Controlled dynamically via state machine button */
+            display: none;
         }
         .analytics-graph-container.active {
             display: block;
@@ -293,6 +293,13 @@
         .course-card.warning .grade-display { color: var(--danger-color); }
         .course-card.completed-failed .grade-display { color: var(--danger-color); }
 
+        .prediction-string {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+
         /* --- Custom Dialog Pop-up Modal --- */
         .modal-overlay {
             display: none;
@@ -358,7 +365,6 @@
             background: #2a2a35; padding: 15px; border-radius: 8px;
             margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
         }
-        .grade-target-text { color: var(--success-color); font-size: 13px; margin-top: 4px; font-weight: 500; }
         .action-links button {
             background: none; border: none; color: var(--text-muted); cursor: pointer;
             font-size: 13px; margin-left: 10px; text-decoration: underline;
@@ -557,7 +563,7 @@
         let activeCourseIndex = null;
         let editingGradeIndex = null; 
         let modalTargetCourseIndex = null;
-        let trendChartInstance = null; // Chart instance container reference variable
+        let trendChartInstance = null; 
         let isTrendChartVisible = false;
 
         window.onload = function() {
@@ -657,7 +663,6 @@
         function renderTrendGraph() {
             const ctx = document.getElementById('journeyTrendChart').getContext('2d');
             
-            // Calculate independent tier context averages
             const tiers = ['gr9', 'gr10', 'gr11', 'gr12'];
             const averages = t => {
                 let courses = appData.courses.filter(c => c.gradeLevel === t);
@@ -724,6 +729,65 @@
             });
         }
 
+        /* --- FIXED MATH CORE ENGINES --- */
+
+        // Calculates current normalized average over only completed tasks
+        function calculateCourseGrade(course) {
+            if (course.isCompleted && course.finalOverriddenGrade !== undefined) {
+                return course.finalOverriddenGrade;
+            }
+            if (!course.grades || course.grades.length === 0) return '--';
+
+            let completedGrades = course.grades.filter(g => g.completed);
+            if (completedGrades.length === 0) return '--';
+
+            let accumulatedWeightPoints = 0;
+            let totalCompletedWeight = 0;
+
+            completedGrades.forEach(g => {
+                accumulatedWeightPoints += (g.score * g.weight);
+                totalCompletedWeight += g.weight;
+            });
+
+            if (totalCompletedWeight === 0) return '--';
+            return Math.round(accumulatedWeightPoints / totalCompletedWeight);
+        }
+
+        // Computes dynamic status predictions per item without global breakdown glitches
+        function calculateTargetPredictions(course) {
+            if (course.isCompleted) return "";
+            if (!course.grades || course.grades.length === 0) return "Add assignment tasks to forecast grades.";
+
+            let completed = course.grades.filter(g => g.completed);
+            let pending = course.grades.filter(g => !g.completed);
+
+            let currentEarnedPoints = completed.reduce((sum, g) => sum + (g.score * g.weight), 0);
+            let totalCompletedWeight = completed.reduce((sum, g) => sum + g.weight, 0);
+            let totalPendingWeight = pending.reduce((sum, g) => sum + g.weight, 0);
+            let totalCourseWeight = totalCompletedWeight + totalPendingWeight;
+
+            let targetGoal = course.goal || 80;
+
+            if (pending.length === 0) {
+                let currentAvg = totalCompletedWeight > 0 ? Math.round(currentEarnedPoints / totalCompletedWeight) : 0;
+                return `All added tasks completed. Current Average: ${currentAvg}%.`;
+            }
+
+            // Correct calculation: Scale the target goal points directly to what has weight mapped
+            let overallNeededPoints = (targetGoal * totalCourseWeight) - currentEarnedPoints;
+            let neededPendingAverage = totalPendingWeight > 0 ? (overallNeededPoints / totalPendingWeight) : 0;
+
+            if (neededPendingAverage <= 0) {
+                return `🎉 Goal secured! You can score 0% on remaining tasks and keep an average above ${targetGoal}%.`;
+            } else if (neededPendingAverage > 100) {
+                return `⚠️ To reach ${targetGoal}%, you need an impossible average of ${Math.round(neededPendingAverage)}% across remaining entries.`;
+            } else {
+                return `🎯 To hit your ${targetGoal}% goal, you must average **${Math.round(neededPendingAverage)}%** on the remaining ${pending.length} planned items (${totalPendingWeight}% of course value).`;
+            }
+        }
+
+        /* --- REST OF THE CODE IMPLEMENTATION & REPAIRING TRUNCATION --- */
+
         function calculateAndRenderGlobalMetrics() {
             let totalGradesSum = 0;
             let courseCountWithGrades = 0;
@@ -732,277 +796,298 @@
 
             let lowCourses = [];
             const activeFilter = appData.currentAvgFilter;
-
             const headerTitleText = document.getElementById('improvement-header-title');
-            if (activeFilter === 'all') {
-                headerTitleText.innerText = '⚠️ Needs Improvement (All)';
-            } else {
-                headerTitleText.innerText = `⚠️ Needs Improvement (${activeFilter.toUpperCase().replace('GR', 'Gr. ')})`;
-            }
 
-            appData.courses.forEach(course => {
-                if (activeFilter !== 'all' && course.gradeLevel !== activeFilter) {
-                    return;
-                }
+            appData.courses.forEach(c => {
+                if (activeFilter !== 'all' && c.gradeLevel !== activeFilter) return;
 
-                const currentGrade = calculateCourseGrade(course);
+                let currentGrade = calculateCourseGrade(c);
                 if (currentGrade !== '--') {
                     totalGradesSum += currentGrade;
                     courseCountWithGrades++;
-                }
-                
-                if (currentGrade !== '--' && currentGrade < course.goal) {
-                    let readableGradeLabel = course.gradeLevel.toUpperCase().replace('GR', 'Gr. ');
-                    lowCourses.push({ name: `${course.name} (${readableGradeLabel})`, grade: currentGrade, goal: course.goal });
+
+                    if (currentGrade < (c.goal || 80)) {
+                        lowCourses.push({ name: c.name, grade: currentGrade, goal: c.goal || 80 });
+                    }
                 }
             });
 
-            let finalGlobalAverage = '--';
-            if (courseCountWithGrades > 0) {
-                finalGlobalAverage = Math.round(totalGradesSum / courseCountWithGrades);
-            }
-
-            const display = document.getElementById('global-avg-display');
-            const card = document.getElementById('global-avg-card');
-
-            if (finalGlobalAverage === '--') {
-                display.innerText = '--%';
-                card.classList.remove('below-goal');
-            } else {
-                display.innerText = `${finalGlobalAverage}%`;
-                
-                if (finalGlobalAverage < appData.globalGoal) {
-                    card.classList.add('below-goal');
-                } else {
-                    card.classList.remove('below-goal');
-                }
-            }
-
+            // Update Header status
             if (lowCourses.length === 0) {
-                improvementList.innerHTML = '<li class="improvement-item">🎉 No classes matching criteria are below targets!</li>';
+                headerTitleText.innerText = "✅ Looking Great!";
+                let li = document.createElement('li');
+                li.className = "improvement-item";
+                li.innerHTML = "<span style='color: var(--success-color)'>All courses are hitting your goals!</span>";
+                improvementList.appendChild(li);
             } else {
-                lowCourses.forEach(c => {
-                    const li = document.createElement('li');
-                    li.className = 'improvement-item';
-                    li.innerHTML = `<span>${c.name}</span> <span class="alert-mark">${c.grade}% / Goal: ${c.goal}%</span>`;
+                headerTitleText.innerText = "⚠️ Needs Improvement";
+                lowCourses.forEach(lc => {
+                    let li = document.createElement('li');
+                    li.className = "improvement-item";
+                    li.innerHTML = `<span>${lc.name}</span> <span>${lc.grade}% / <span class="alert-mark">${lc.goal}%</span></span>`;
                     improvementList.appendChild(li);
                 });
+            }
+
+            const globalAvgDisplay = document.getElementById('global-avg-display');
+            const globalAvgCard = document.getElementById('global-avg-card');
+
+            if (courseCountWithGrades === 0) {
+                globalAvgDisplay.innerText = '--%';
+                globalAvgCard.classList.remove('below-goal');
+            } else {
+                let finalGlobalAvg = Math.round(totalGradesSum / courseCountWithGrades);
+                globalAvgDisplay.innerText = `${finalGlobalAvg}%`;
+
+                if (finalGlobalAvg < appData.globalGoal) {
+                    globalAvgCard.classList.add('below-goal');
+                } else {
+                    globalAvgCard.classList.remove('below-goal');
+                }
             }
         }
 
         function renderDashboard() {
-            const grids = {
-                gr9: document.getElementById('grid-gr9'),
-                gr10: document.getElementById('grid-gr10'),
-                gr11: document.getElementById('grid-gr11'),
-                gr12: document.getElementById('grid-gr12')
-            };
+            const tiers = ['gr9', 'gr10', 'gr11', 'gr12'];
+            
+            tiers.forEach(t => {
+                const grid = document.getElementById(`grid-${t}`);
+                const countBadge = document.getElementById(`count-${t}`);
+                grid.innerHTML = '';
 
-            Object.keys(grids).forEach(k => { if(grids[k]) grids[k].innerHTML = ''; });
-            let counts = { gr9: 0, gr10: 0, gr11: 0, gr12: 0 };
+                let filteredCourses = appData.courses.filter(c => c.gradeLevel === t);
+                countBadge.innerText = filteredCourses.length;
 
-            appData.courses.forEach((course, index) => {
-                const currentGrade = calculateCourseGrade(course);
-                const isBelowGoal = currentGrade !== '--' && currentGrade < course.goal;
-                const targetGrid = grids[course.gradeLevel];
-
-                if (!targetGrid) return;
-                counts[course.gradeLevel]++;
-
-                let cardStateClass = '';
-                if (course.isCompleted) {
-                    cardStateClass = (currentGrade >= course.goal) ? 'completed-passed' : 'completed-failed';
-                } else if (isBelowGoal) {
-                    cardStateClass = 'warning';
+                if (filteredCourses.length === 0) {
+                    grid.innerHTML = `<div class="no-courses-placeholder">No semester tracks mapped for this timeline tier.</div>`;
+                    return;
                 }
 
-                const card = document.createElement('div');
-                card.className = `course-card ${cardStateClass}`;
-                card.setAttribute('onclick', `openCourseDetail(${index})`);
+                filteredCourses.forEach(course => {
+                    // Match indexing inside original master data list
+                    let masterIndex = appData.courses.indexOf(course);
+                    let currentGrade = calculateCourseGrade(course);
+                    let goalValue = course.goal || 80;
 
-                let badgeHtml = '';
-                let buttonHtml = `<button class="done-class-btn" onclick="openDoneModal(event, ${index})">Done</button>`;
-                
-                if (course.isCompleted) {
-                    buttonHtml = ''; 
-                    if (currentGrade >= course.goal) {
-                        badgeHtml = `<span class="status-badge passed">✓ Completed (Met Goal)</span>`;
-                    } else {
-                        badgeHtml = `<span class="status-badge failed">⚠ Completed (Below Goal)</span>`;
+                    let cardClass = 'course-card';
+                    if (course.isCompleted) {
+                        cardClass += (currentGrade >= goalValue) ? ' completed-passed' : ' completed-failed';
+                    } else if (currentGrade !== '--' && currentGrade < goalValue) {
+                        cardClass += ' warning';
                     }
-                }
 
-                card.innerHTML = `
-                    <button class="delete-btn" onclick="deleteCourse(event, ${index})">×</button>
-                    <h3 style="margin: 0;">${course.name}</h3>
-                    <div class="grade-display">${currentGrade}${currentGrade === '--' ? '%' : '%'}</div>
-                    <p style="margin: 0; font-size: 12px; color: var(--text-muted)">
-                        Goal: ${course.goal}% ${course.isCompleted ? '' : (currentGrade === '--' ? '' : (isBelowGoal ? '⚠️ Below Goal' : '✨ Tracking Well'))}
-                    </p>
-                    ${badgeHtml}
-                    ${buttonHtml}
-                `;
-                targetGrid.appendChild(card);
-            });
+                    let cardHtml = `
+                        <div class="${cardClass}" onclick="openCourseDetails(${masterIndex})">
+                            <button class="delete-btn" onclick="deleteCourse(${masterIndex}, event)">&times;</button>
+                            <h3 style="margin:0; font-size:16px;">${course.name}</h3>
+                    `;
 
-            Object.keys(grids).forEach(key => {
-                document.getElementById(`count-${key}`).innerText = counts[key];
-                if(counts[key] === 0 && grids[key]) {
-                    grids[key].innerHTML = `<div class="no-courses-placeholder">No courses logged for this grade tier yet.</div>`;
-                }
+                    if (course.isCompleted) {
+                        cardHtml += `<span class="status-badge ${currentGrade >= goalValue ? 'passed' : 'failed'}">COMPLETED</span>`;
+                    } else {
+                        cardHtml += `<p style="font-size:11px; margin:2px 0 0 0; color:var(--text-muted)">Goal Target: ${goalValue}%</p>`;
+                    }
+
+                    cardHtml += `
+                            <div class="grade-display">${currentGrade}${currentGrade !== '--' ? '%' : ''}</div>
+                            <div class="prediction-string">${calculateTargetPredictions(course)}</div>
+                    `;
+
+                    if (!course.isCompleted && currentGrade !== '--') {
+                        cardHtml += `<button class="done-class-btn" onclick="openDoneModal(${masterIndex}, event)">Complete Course</button>`;
+                    }
+
+                    cardHtml += `</div>`;
+                    grid.innerHTML += cardHtml;
+                });
             });
 
             calculateAndRenderGlobalMetrics();
-            if (isTrendChartVisible) renderTrendGraph();
         }
 
-        function calculateCourseGrade(course) {
-            if (course.isCompleted && course.finalOverrideGrade !== undefined && course.finalOverrideGrade !== null) {
-                return course.finalOverrideGrade;
-            }
-            const completedGrades = (course.grades || []).filter(g => g.completed !== false);
-            if (completedGrades.length === 0) return '--';
-
-            let totalWeightUsed = 0;
-            let weightedSum = 0;
-
-            completedGrades.forEach(grade => {
-                const w = parseFloat(grade.weight) || 0;
-                const s = parseFloat(grade.score) || 0;
-                weightedSum += (s * (w / 100));
-                totalWeightUsed += w;
-            });
-
-            if (totalWeightUsed === 0) return '--';
-            return Math.round((weightedSum / totalWeightUsed) * 100);
-        }
-
-        function openCourseDetail(index) {
+        function openCourseDetails(index) {
             activeCourseIndex = index;
             const course = appData.courses[index];
-            switchView('detail-view');
-            
-            const readableGradeLabel = course.gradeLevel.toUpperCase().replace('GR', 'Grade ');
             document.getElementById('detail-course-title').innerText = course.name;
-            document.getElementById('detail-course-grade-badge').innerText = `Academic Tier Context: ${readableGradeLabel}`;
-            document.getElementById('detail-course-goal-input').value = course.goal;
+            document.getElementById('detail-course-goal-input').value = course.goal || 80;
 
-            const formWrapper = document.getElementById('detail-editing-form-wrapper');
-            formWrapper.style.display = course.isCompleted ? 'none' : 'block';
-            renderGradesList();
-        }
+            let currentGrade = calculateCourseGrade(course);
+            document.getElementById('detail-course-grade-badge').innerText = `Current Average Status: ${currentGrade}${currentGrade !== '--' ? '%' : ''}`;
 
-        function updateCourseGoal() {
-            const val = parseFloat(document.getElementById('detail-course-goal-input').value);
-            if (!isNaN(val) && val >= 0 && activeCourseIndex !== null) {
-                appData.courses[activeCourseIndex].goal = val;
-                saveToLocalStorage();
-                renderDashboard();
-                alert("Target goal updated successfully!");
-            }
-        }
-
-        function deleteCourse(event, index) {
-            event.stopPropagation();
-            if (confirm("Are you sure you want to delete this course and all associated tracking data?")) {
-                appData.courses.splice(index, 1);
-                saveToLocalStorage();
-                renderDashboard();
-            }
-        }
-
-        function addGradeToCourse() {
-            if (activeCourseIndex === null) return;
-
-            const name = document.getElementById('grade-name').value.trim();
-            const type = document.getElementById('grade-type').value;
-            const weight = parseFloat(document.getElementById('grade-weight').value);
-            const isCompleted = document.getElementById('grade-completed').checked;
-            let score = parseFloat(document.getElementById('grade-score').value);
-
-            if (!name || isNaN(weight) || weight <= 0) {
-                alert("Please verify assignment configurations. A name and structural weight are required.");
-                return;
-            }
-            if (isCompleted && (isNaN(score) || score < 0)) {
-                alert("Please add a valid achieved score percentage summary.");
-                return;
-            }
-            if (!isCompleted) score = null;
-
-            const newEntry = { name, type, weight, score, completed: isCompleted };
-            const course = appData.courses[activeCourseIndex];
-
-            if (editingGradeIndex !== null) {
-                course.grades[editingGradeIndex] = newEntry;
-                editingGradeIndex = null;
+            if (course.isCompleted) {
+                document.getElementById('detail-editing-form-wrapper').style.display = 'none';
             } else {
-                if (!course.grades) course.grades = [];
-                course.grades.push(newEntry);
+                document.getElementById('detail-editing-form-wrapper').style.display = 'block';
             }
 
-            saveToLocalStorage();
-            clearGradeForm();
             renderGradesList();
-            renderDashboard();
+            switchView('detail-view');
         }
 
         function renderGradesList() {
             const container = document.getElementById('grades-list-container');
             container.innerHTML = '';
-            if (activeCourseIndex === null) return;
             const course = appData.courses[activeCourseIndex];
 
             if (!course.grades || course.grades.length === 0) {
-                container.innerHTML = '<div class="no-courses-placeholder">No evaluations recorded for this course track yet.</div>';
+                container.innerHTML = '<p style="color: var(--text-muted); font-size:13px; font-style:italic;">No tasks added yet.</p>';
                 return;
             }
 
-            course.grades.forEach((grade, idx) => {
-                const item = document.createElement('div');
-                item.className = 'grade-item';
-                let statusDetails = grade.completed === false ? 
-                    `<span style="color: var(--text-muted); font-style: italic;">[Incomplete / Planned]</span>` : 
-                    `<strong style="color: var(--accent-color);">${grade.score}%</strong>`;
+            // Setup proper target items prediction baseline mapping logic
+            let currentEarnedPoints = course.grades.filter(g => g.completed).reduce((sum, g) => sum + (g.score * g.weight), 0);
+            let totalCompletedWeight = course.grades.filter(g => g.completed).reduce((sum, g) => sum + g.weight, 0);
+            let totalPendingWeight = course.grades.filter(g => !g.completed).reduce((sum, g) => sum + g.weight, 0);
+            let targetGoal = course.goal || 80;
 
-                let actionPanel = course.isCompleted ? '' : `
-                    <div class="action-links">
-                        <button onclick="editGradeEntry(${idx})">Edit</button>
-                        <button class="del-item" onclick="deleteGradeEntry(${idx})">Remove</button>
-                    </div>`;
+            course.grades.forEach((g, idx) => {
+                let div = document.createElement('div');
+                div.className = 'grade-item';
 
-                item.innerHTML = `
-                    <div>
-                        <div style="font-weight: 600;">${grade.name} <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">(${grade.type})</span></div>
-                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-                            Weight Breakdown Share: ${grade.weight}% | Score: ${statusDetails}
-                        </div>
-                    </div>
-                    ${actionPanel}
-                `;
-                container.appendChild(item);
+                let detailsDiv = document.createElement('div');
+                detailsDiv.innerHTML = `<strong>${g.name}</strong> <span style="font-size:11px; color:var(--text-muted)">(${g.type})</span>`;
+                
+                let statsString = `<br><span style="font-size:12px; color: var(--text-muted)">Weight Breakdown Share: ${g.weight}% | Status: `;
+                if (g.completed) {
+                    statsString += `<span style="color:var(--accent-color); font-weight:bold;">${g.score}%</span>`;
+                } else {
+                    let totalCourseWeight = totalCompletedWeight + totalPendingWeight;
+                    let remainingNeededPoints = (targetGoal * totalCourseWeight) - currentEarnedPoints;
+                    let calculatedTargetScore = totalPendingWeight > 0 ? (remainingNeededPoints / totalPendingWeight) : targetGoal;
+                    
+                    let finalLabel = Math.max(0, Math.round(calculatedTargetScore));
+                    statsString += `<span style="background: rgba(239,68,68,0.15); padding:2px 6px; border-radius:4px; font-weight:bold; color:var(--danger-color)">To reach/maintain average: ${finalLabel > 100 ? 'Impossible (' + finalLabel + ')' : finalLabel + '%'}</span>`;
+                }
+                statsString += `</span>`;
+                detailsDiv.innerHTML += statsString;
+
+                let actionDiv = document.createElement('div');
+                actionDiv.className = 'action-links';
+
+                if (!course.isCompleted) {
+                    actionDiv.innerHTML = `
+                        <button onclick="editGrade(${idx})">Edit</button>
+                        <button class="del-item" onclick="deleteGrade(${idx})">Remove</button>
+                    `;
+                }
+
+                div.appendChild(detailsDiv);
+                div.appendChild(actionDiv);
+                container.appendChild(div);
             });
         }
 
-        function editGradeEntry(idx) {
-            const grade = appData.courses[activeCourseIndex].grades[idx];
+        function addNewCourse() {
+            const name = document.getElementById('new-course-name').value.trim();
+            const tier = document.getElementById('new-course-grade-level').value;
+            const goal = parseFloat(document.getElementById('new-course-goal').value);
+
+            if (!name || isNaN(goal)) {
+                alert("Please complete all course creation inputs accurately.");
+                return;
+            }
+
+            appData.courses.push({
+                name: name,
+                gradeLevel: tier,
+                goal: goal,
+                isCompleted: false,
+                grades: []
+            });
+
+            saveToLocalStorage();
+            renderDashboard();
+            document.getElementById('new-course-name').value = '';
+            document.getElementById('new-course-goal').value = '';
+            switchView('dashboard-view');
+        }
+
+        function deleteCourse(index, event) {
+            event.stopPropagation();
+            if (confirm("Are you certain you wish to delete this course tracker row?")) {
+                appData.courses.splice(index, 1);
+                saveToLocalStorage();
+                renderDashboard();
+                if (isTrendChartVisible) renderTrendGraph();
+            }
+        }
+
+        function updateCourseGoal() {
+            const val = parseFloat(document.getElementById('detail-course-goal-input').value);
+            if (!isNaN(val) && val >= 0) {
+                appData.courses[activeCourseIndex].goal = val;
+                saveToLocalStorage();
+                let currentGrade = calculateCourseGrade(appData.courses[activeCourseIndex]);
+                document.getElementById('detail-course-grade-badge').innerText = `Current Average Status: ${currentGrade}${currentGrade !== '--' ? '%' : ''}`;
+                renderGradesList();
+                renderDashboard();
+            }
+        }
+
+        function addGradeToCourse() {
+            const name = document.getElementById('grade-name').value.trim();
+            const type = document.getElementById('grade-type').value;
+            const weight = parseFloat(document.getElementById('grade-weight').value);
+            const isCompleted = document.getElementById('grade-completed').checked;
+            const score = parseFloat(document.getElementById('grade-score').value);
+
+            if (!name || isNaN(weight)) {
+                alert("Please add a valid description name and assigned weight threshold.");
+                return;
+            }
+            if (isCompleted && isNaN(score)) {
+                alert("Please supply the percentage grade metrics scored on this entry.");
+                return;
+            }
+
+            let entryData = {
+                name: name,
+                type: type,
+                weight: weight,
+                completed: isCompleted,
+                score: isCompleted ? score : null
+            };
+
+            if (editingGradeIndex !== null) {
+                appData.courses[activeCourseIndex].grades[editingGradeIndex] = entryData;
+            } else {
+                if (!appData.courses[activeCourseIndex].grades) appData.courses[activeCourseIndex].grades = [];
+                appData.courses[activeCourseIndex].grades.push(entryData);
+            }
+
+            saveToLocalStorage();
+            clearGradeForm();
+            
+            let currentGrade = calculateCourseGrade(appData.courses[activeCourseIndex]);
+            document.getElementById('detail-course-grade-badge').innerText = `Current Average Status: ${currentGrade}${currentGrade !== '--' ? '%' : ''}`;
+            
+            renderGradesList();
+            renderDashboard();
+        }
+
+        function editGrade(idx) {
             editingGradeIndex = idx;
+            const grade = appData.courses[activeCourseIndex].grades[idx];
+            
             document.getElementById('grade-name').value = grade.name;
             document.getElementById('grade-type').value = grade.type;
             document.getElementById('grade-weight').value = grade.weight;
+            document.getElementById('grade-completed').checked = grade.completed;
             
-            const checkbox = document.getElementById('grade-completed');
-            checkbox.checked = (grade.completed !== false);
-            toggleScoreInput(checkbox);
+            const scoreInput = document.getElementById('grade-score');
+            toggleScoreInput(document.getElementById('grade-completed'));
+            
+            if (grade.completed) {
+                scoreInput.value = grade.score;
+            }
 
-            if (grade.completed !== false) document.getElementById('grade-score').value = grade.score;
-
-            document.getElementById('submit-grade-btn').innerText = "Update Assignment Properties";
+            document.getElementById('form-action-title').innerText = "Edit Assignment Entry";
+            document.getElementById('submit-grade-btn').innerText = "Save Changes";
             document.getElementById('cancel-edit-btn').style.display = 'inline-block';
         }
 
-        function deleteGradeEntry(idx) {
-            if (confirm("Remove evaluation parameter?")) {
+        function deleteGrade(idx) {
+            if (confirm("Remove this entry from the tracking sheet?")) {
                 appData.courses[activeCourseIndex].grades.splice(idx, 1);
                 saveToLocalStorage();
                 renderGradesList();
@@ -1017,20 +1102,22 @@
             document.getElementById('grade-score').value = '';
             document.getElementById('grade-completed').checked = true;
             toggleScoreInput(document.getElementById('grade-completed'));
+
+            document.getElementById('form-action-title').innerText = "Add an Assignment / Task";
             document.getElementById('submit-grade-btn').innerText = "Add Assignment Entry";
             document.getElementById('cancel-edit-btn').style.display = 'none';
         }
 
-        function openDoneModal(event, index) {
-            event.stopPropagation();
+        /* --- Complete Course Verification Modal Engine --- */
+        function openDoneModal(index, event) {
+            if (event) event.stopPropagation();
             modalTargetCourseIndex = index;
             const course = appData.courses[index];
-            const currentPredicted = calculateCourseGrade(course);
+            let predGrade = calculateCourseGrade(course);
 
-            document.getElementById('modal-course-title').innerText = course.name;
-            document.getElementById('modal-prediction-text').innerText = `Predicted Tracker Value: ${currentPredicted}%`;
+            document.getElementById('modal-course-title').innerText = `Verify Grade: ${course.name}`;
+            document.getElementById('modal-prediction-text').innerText = `Your calculated average based on recorded coursework values is ${predGrade}%.`;
             document.getElementById('custom-grade-input-area').style.display = 'none';
-            document.getElementById('modal-custom-grade-field').value = '';
             document.getElementById('custom-done-modal').classList.add('active');
         }
 
@@ -1039,64 +1126,38 @@
             modalTargetCourseIndex = null;
         }
 
-        function handleModalResponse(isEqual) {
-            const course = appData.courses[modalTargetCourseIndex];
-            if (isEqual) {
+        function handleModalResponse(isCorrect) {
+            if (isCorrect) {
+                const course = appData.courses[modalTargetCourseIndex];
                 course.isCompleted = true;
-                course.finalOverrideGrade = calculateCourseGrade(course);
+                course.finalOverriddenGrade = calculateCourseGrade(course);
                 saveToLocalStorage();
-                renderDashboard();
                 closeDoneModal();
+                renderDashboard();
+                if (isTrendChartVisible) renderTrendGraph();
             } else {
                 document.getElementById('custom-grade-input-area').style.display = 'block';
             }
         }
 
         function submitCustomModalGrade() {
-            const inputField = document.getElementById('modal-custom-grade-field');
-            const customGrade = parseFloat(inputField.value);
-
-            if (isNaN(customGrade) || customGrade < 0 || customGrade > 150) {
-                alert("Please input a valid percentage score entry.");
-                return;
+            const val = parseFloat(document.getElementById('modal-custom-grade-field').value);
+            if (!isNaN(val) && val >= 0) {
+                const course = appData.courses[modalTargetCourseIndex];
+                course.isCompleted = true;
+                course.finalOverriddenGrade = val;
+                saveToLocalStorage();
+                document.getElementById('modal-custom-grade-field').value = '';
+                closeDoneModal();
+                renderDashboard();
+                if (isTrendChartVisible) renderTrendGraph();
+            } else {
+                alert("Please add a valid final score entry.");
             }
-
-            const course = appData.courses[modalTargetCourseIndex];
-            course.isCompleted = true;
-            course.finalOverrideGrade = Math.round(customGrade);
-
-            saveToLocalStorage();
-            renderDashboard();
-            closeDoneModal();
-        }
-
-        function addNewCourse() {
-            const nameInput = document.getElementById('new-course-name');
-            const gradeSelect = document.getElementById('new-course-grade-level');
-            const goalInput = document.getElementById('new-course-goal');
-
-            if (!nameInput.value || !goalInput.value) {
-                alert("Please fill in all fields.");
-                return;
-            }
-
-            appData.courses.push({
-                name: nameInput.value,
-                gradeLevel: gradeSelect.value, 
-                goal: parseFloat(goalInput.value),
-                grades: [],
-                isCompleted: false
-            });
-
-            saveToLocalStorage();
-            nameInput.value = '';
-            goalInput.value = '';
-            switchView('dashboard-view');
-            renderDashboard();
         }
 
         function resetApp() {
-            if (confirm("⚠️ Operational Reset Alert: Delete all registered coursework data data points globally?")) {
+            if (confirm("Are you sure you want to completely erase all data courses, logs, goals, and history profiles?")) {
                 localStorage.removeItem('gradeTrackerData');
                 location.reload();
             }
